@@ -1,0 +1,6 @@
+[submodule "Third-Party/Unity"]
+	path = Third-Party/Unity
+	url = https://github.com/ThrowTheSwitch/Unity.git
+[submodule "Third-Party/glfw"]
+	path = Third-Party/glfw
+	url = https://github.com/glfw/glfw.git

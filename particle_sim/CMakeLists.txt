@@ -19,6 +19,9 @@ foreach(SRC_FILE ${SOURCES})
     
     if (NOT ${FILENAME} STREQUAL "particle_sim")
         add_library(${FILENAME} OBJECT ${SRC_FILE})
+        if (${FILENAME} STREQUAL vector_3d)
+            target_link_libraries(${FILENAME} m)
+        endif()
     
         if (EXISTS ${CMAKE_CURRENT_LIST_DIR}/unit_tests/test_${FILENAME}.c)
             add_library(test_${FILENAME} OBJECT ${CMAKE_CURRENT_LIST_DIR}/unit_tests/test_${FILENAME}.c)
@@ -35,11 +38,11 @@ foreach(SRC_FILE ${SOURCES})
                                WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/unit_tests
                                COMMAND $<TARGET_FILE:test_${FILENAME}_runner>)
         endif()
-    else()
     endif()
 
 endforeach(SRC_FILE ${SOURCES})
 
 add_executable(particle_sim WIN32 ${CMAKE_CURRENT_LIST_DIR}/src/particle_sim.c)
-        target_link_libraries(particle_sim PRIVATE glfw mechanic_equations vector_3d)
-        set_target_properties(particle_sim PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
+target_link_libraries(particle_sim PUBLIC glfw glad mechanic_equations vector_3d)
+target_include_directories(particle_sim PUBLIC Third-Party/glfw/include ${GLAD_INCLUDE_DIRS})
+set_target_properties(particle_sim PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)

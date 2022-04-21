@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <assert.h>
 
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+#include <glad/glad.h>
 
 #include "vector_3d.h"
 #include "mechanic_equations.h"
@@ -9,7 +11,7 @@
 
 void error_callback(int error, const char* description);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-void window_loop(GLFWwindow* window);
+void render_loop(GLFWwindow* window);
 
 int main(void)
 {
@@ -21,7 +23,7 @@ int main(void)
     glfwSetKeyCallback(window, key_callback);
     glfwMakeContextCurrent(window);
 
-    window_loop(window);
+    render_loop(window);
     
     glfwDestroyWindow(window);
     glfwTerminate();
@@ -41,15 +43,13 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-void window_loop(GLFWwindow* window)
+void render_loop(GLFWwindow* window)
 {
     while (!glfwWindowShouldClose(window)) {
         
-        float ratio;
         int width, height;
  
         glfwGetFramebufferSize(window, &width, &height);
-        ratio = width / (float) height;
 
         glfwSwapBuffers(window);
         glfwPollEvents();

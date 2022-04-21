@@ -4,3 +4,6 @@
 [submodule "Third-Party/glfw"]
 	path = Third-Party/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "Third-Party/glad"]
+	path = Third-Party/glad
+	url = https://github.com/Dav1dde/glad.git

@@ -1,6 +1,7 @@
-set(MAIN "particle_sim")
+set(MAIN particle_sim)
 set(UNITY_DIR ${CMAKE_SOURCE_DIR}/Third-Party/Unity)
 set(TEST_RUNNER_DIR ${CMAKE_BINARY_DIR}/utilities/binary_trees/CMakeFiles)
+set(GLFW_DIR ${CMAKE_SOURCE_DIR}/Third-Party/glfw)
 
 file(GLOB SOURCES src/*.c)
 file(GLOB GENERATE_TEST_RUNNER ${UNITY_DIR}/auto/generate_test_runner.rb)
@@ -44,7 +45,16 @@ foreach(SRC_FILE ${SOURCES})
 
 endforeach(SRC_FILE ${SOURCES})
 
+
+add_library(linmath OBJECT ${GLFW_DIR}/deps/linmath.h)
+target_link_libraries(linmath PRIVATE m)
+list(APPEND GLFW_LINKS glfw linmath)
+
+
 add_executable(${MAIN} WIN32 ${CMAKE_CURRENT_LIST_DIR}/src/particle_sim.c)
-target_link_libraries(${MAIN} PUBLIC glfw glad ${LOCAL_LINKS})
-target_include_directories(${MAIN} PUBLIC Third-Party/glfw/include ${GLAD_INCLUDE_DIRS})
+target_link_libraries(${MAIN} PUBLIC ${GLFW_LINKS} glad ${LOCAL_LINKS})
+target_include_directories(${MAIN} PUBLIC ${GLFW_DIR}/include ${GLFW_DIR}/deps ${GLAD_INCLUDE_DIRS})
 set_target_properties(${MAIN} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
+
+file(COPY src/shaders/vs.vert DESTINATION ${CMAKE_BINARY_DIR}/output)
+file(COPY src/shaders/fs.frag DESTINATION ${CMAKE_BINARY_DIR}/output)

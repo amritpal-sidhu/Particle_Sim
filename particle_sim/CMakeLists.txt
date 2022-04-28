@@ -1,60 +1,30 @@
 set(MAIN particle_sim)
 set(UNITY_DIR ${CMAKE_SOURCE_DIR}/Third-Party/Unity)
-set(TEST_RUNNER_DIR ${CMAKE_BINARY_DIR}/utilities/binary_trees/CMakeFiles)
 set(GLFW_DIR ${CMAKE_SOURCE_DIR}/Third-Party/glfw)
-
-file(GLOB SOURCES src/*.c)
-file(GLOB GENERATE_TEST_RUNNER ${UNITY_DIR}/auto/generate_test_runner.rb)
+set(GENERATE_TEST_RUNNER ${UNITY_DIR}/auto/generate_test_runner.rb)
 
 
-if(NOT EXISTS ${TEST_RUNNER_DIR})
-    file(MAKE_DIRECTORY ${TEST_RUNNER_DIR})
-endif(NOT EXISTS ${TEST_RUNNER_DIR})
+add_compile_options(
+    -Wsign-conversion
+    -Wcast-qual
+    -Wstrict-prototypes
+)
+
+include_directories(inc
+                    ${UNITY_DIR}/src
+                    ${GLFW_DIR}/include
+                    ${GLFW_DIR}/src
+                    ${GLAD_INCLUDE_DIRS})
 
 
-include_directories(inc ${UNITY_DIR}/src)
+add_executable(${MAIN} WIN32)
+target_compile_definitions(${MAIN} PRIVATE _CRT_SECURE_NO_WARNINGS)
+target_link_libraries(${MAIN} PRIVATE glfw glad)
+target_sources(${MAIN} PRIVATE
+            src/mechanic_equations.c
+            src/particle_sim.c
+            src/vector_3d.c
+            ${GLFW_DIR}/deps/linmath.h)
 
-
-foreach(SRC_FILE ${SOURCES})
-
-    get_filename_component(FILENAME ${SRC_FILE} NAME_WE)
-    
-    if (NOT ${FILENAME} STREQUAL ${MAIN})
-        add_library(${FILENAME} OBJECT ${SRC_FILE})
-        if (${FILENAME} STREQUAL vector_3d)
-            target_link_libraries(${FILENAME} m)
-        endif()
-        list(APPEND LOCAL_LINKS ${FILENAME})
-    
-        if (EXISTS ${CMAKE_CURRENT_LIST_DIR}/unit_tests/test_${FILENAME}.c)
-            add_library(test_${FILENAME} OBJECT ${CMAKE_CURRENT_LIST_DIR}/unit_tests/test_${FILENAME}.c)
-            target_link_libraries(test_${FILENAME} PRIVATE unity ${FILENAME})
-
-            execute_process(COMMAND ruby ${GENERATE_TEST_RUNNER} 
-                                     ${CMAKE_CURRENT_LIST_DIR}/unit_tests/test_${FILENAME}.c
-                                     ${TEST_RUNNER_DIR}/test_${FILENAME}_runner.c)
-
-            add_executable(test_${FILENAME}_runner ${TEST_RUNNER_DIR}/test_${FILENAME}_runner.c)
-            target_link_libraries(test_${FILENAME}_runner PRIVATE test_${FILENAME})
-            
-            add_custom_command(TARGET test_${FILENAME}_runner POST_BUILD
-                               WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/unit_tests
-                               COMMAND $<TARGET_FILE:test_${FILENAME}_runner>)
-        endif()
-    endif()
-
-endforeach(SRC_FILE ${SOURCES})
-
-
-add_library(linmath OBJECT ${GLFW_DIR}/deps/linmath.h)
-target_link_libraries(linmath PRIVATE m)
-list(APPEND GLFW_LINKS glfw linmath)
-
-
-add_executable(${MAIN} WIN32 ${CMAKE_CURRENT_LIST_DIR}/src/particle_sim.c)
-target_link_libraries(${MAIN} PUBLIC ${GLFW_LINKS} glad ${LOCAL_LINKS})
-target_include_directories(${MAIN} PUBLIC ${GLFW_DIR}/include ${GLFW_DIR}/deps ${GLAD_INCLUDE_DIRS})
-set_target_properties(${MAIN} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
-
-file(COPY src/shaders/vs.vert DESTINATION ${CMAKE_BINARY_DIR}/output)
-file(COPY src/shaders/fs.frag DESTINATION ${CMAKE_BINARY_DIR}/output)
+file(COPY shaders DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+# set_target_properties(${MAIN} PROPERTIES GNUtoMS ON)

@@ -18,13 +18,15 @@ include_directories(inc
 
 
 add_executable(${MAIN} WIN32)
-target_compile_definitions(${MAIN} PRIVATE _CRT_SECURE_NO_WARNINGS)
-target_link_libraries(${MAIN} PRIVATE glfw glad)
+# target_compile_definitions(${MAIN} PRIVATE _CRT_SECURE_NO_WARNINGS)
+target_compile_options()
+target_link_libraries(${MAIN} PRIVATE glfw glad m)
 target_sources(${MAIN} PRIVATE
             src/mechanic_equations.c
             src/particle_sim.c
             src/vector_3d.c
             ${GLFW_DIR}/deps/linmath.h)
+set_property(TARGET ${MAIN} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 file(COPY shaders DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 # set_target_properties(${MAIN} PROPERTIES GNUtoMS ON)

@@ -18,8 +18,8 @@ include_directories(inc
 
 
 add_executable(${MAIN} WIN32)
-# target_compile_definitions(${MAIN} PRIVATE _CRT_SECURE_NO_WARNINGS)
-target_compile_options()
+target_compile_definitions(${MAIN} PRIVATE UNICODE _UNICODE _CRT_SECURE_NO_WARNINGS)
+target_compile_options(${MAIN} PRIVATE "-municode")
 target_link_libraries(${MAIN} PRIVATE glfw glad m)
 target_sources(${MAIN} PRIVATE
             src/mechanic_equations.c

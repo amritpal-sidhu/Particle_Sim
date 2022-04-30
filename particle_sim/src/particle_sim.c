@@ -25,35 +25,36 @@ int file_to_text(FILE *fp, char **text);
 void shader_compile_and_link(GLuint *program, const char *vs_text, const char *fs_text);
 static void error_callback(int error, const char *description);
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
-// static void draw_circle(const float cx, const float cy, const float r, const int num_segments, struct vertex *v);
+static void draw_circle(const float cx, const float cy, const float r, const int num_segments, struct vertex *v);
 static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location);
 
-// static const char* vertex_shader_text =
-// "#version 110\n"
-// "uniform mat4 MVP;\n"
-// "attribute vec3 vCol;\n"
-// "attribute vec2 vPos;\n"
-// "varying vec3 color;\n"
-// "void main()\n"
-// "{\n"
-// "    gl_Position = MVP * vec4(vPos, 0.0, 1.0);\n"
-// "    color = vCol;\n"
-// "}\n";
+static const char* vertex_shader_text =
+"#version 110\n"
+"uniform mat4 MVP;\n"
+"attribute vec3 vCol;\n"
+"attribute vec2 vPos;\n"
+"varying vec3 color;\n"
+"void main()\n"
+"{\n"
+"    gl_Position = MVP * vec4(vPos, 0.0, 1.0);\n"
+"    color = vCol;\n"
+"}\n";
  
-// static const char* fragment_shader_text =
-// "#version 110\n"
-// "varying vec3 color;\n"
-// "void main()\n"
-// "{\n"
-// "    gl_FragColor = vec4(color, 1.0);\n"
-// "}\n";
+static const char* fragment_shader_text =
+"#version 110\n"
+"varying vec3 color;\n"
+"void main()\n"
+"{\n"
+"    gl_FragColor = vec4(color, 1.0);\n"
+"}\n";
 const char vertex_shader_filename[32] = "shaders/vs.vert";
 const char fragment_shader_filename[32] = "shaders/fs.frag";
-static const struct vertex vertices[3] = {
-    { -0.6f, -0.4f, 1.f, 0.f, 0.f },
-    {  0.6f, -0.4f, 0.f, 1.f, 0.f },
-    {   0.f,  0.6f, 0.f, 0.f, 1.f }
-};
+struct vertex vertices[CIRCLE_SEGMENTS];
+// static const struct vertex vertices[3] = {
+//     { -0.6f, -0.4f, 1.f, 0.f, 0.f },
+//     {  0.6f, -0.4f, 0.f, 1.f, 0.f },
+//     {   0.f,  0.6f, 0.f, 0.f, 1.f }
+// };
 
 
 int main(void)
@@ -63,19 +64,19 @@ int main(void)
     GLuint VBO, program;
     GLint mvp_location, vpos_location, vcol_location;
 
-    char *vertex_shader_text = NULL;
-    char *fragment_shader_text = NULL;
+    // char *vertex_shader_text = NULL;
+    // char *fragment_shader_text = NULL;
 
-    FILE *vert_fp = fopen(vertex_shader_filename, "r");
-    FILE *frag_fp = fopen(fragment_shader_filename, "r");
+    // FILE *vert_fp = fopen(vertex_shader_filename, "r");
+    // FILE *frag_fp = fopen(fragment_shader_filename, "r");
 
-    file_to_text(vert_fp, &vertex_shader_text);
-    file_to_text(frag_fp, &fragment_shader_text);
+    // file_to_text(vert_fp, &vertex_shader_text);
+    // file_to_text(frag_fp, &fragment_shader_text);
 
-    fclose(vert_fp);
-    fclose(frag_fp);
+    // fclose(vert_fp);
+    // fclose(frag_fp);
 
-    // draw_circle(0.5f, 0.5f, 0.1f, CIRCLE_SEGMENTS, vertices);
+    draw_circle(0.0f, 0.0f, 0.5f, CIRCLE_SEGMENTS, vertices);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {
@@ -112,8 +113,8 @@ int main(void)
     
     glfwDestroyWindow(window);
     glfwTerminate();
-    free(vertex_shader_text);
-    free(fragment_shader_text);
+    // free(vertex_shader_text);
+    // free(fragment_shader_text);
 
     return 0;
 }
@@ -163,21 +164,21 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-// static void draw_circle(const float cx, const float cy, const float r, const int num_segments, struct vertex *v)
-// {
-//     for(int i = 0; i < num_segments; ++i) {
-//         float theta = 2.0f * PI * i / num_segments;
+static void draw_circle(const float cx, const float cy, const float r, const int num_segments, struct vertex *v)
+{
+    for(int i = 0; i < num_segments; ++i) {
+        float theta = 2.0f * PI * i / num_segments;
 
-//         float x = r * cos(theta);
-//         float y = r * sin(theta);
+        float x = r * cos(theta);
+        float y = r * sin(theta);
 
-//         v[i].x = x + cx;
-//         v[i].y = y + cy;
-//         v[i].r = 1.0f;
-//         v[i].g = 1.0f;
-//         v[i].b = 1.0f;
-//     }
-// }
+        v[i].x = x + cx;
+        v[i].y = y + cy;
+        v[i].r = 1.0f;
+        v[i].g = 1.0f;
+        v[i].b = 1.0f;
+    }
+}
 
 static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location)
 {
@@ -194,13 +195,13 @@ static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location)
         glClear(GL_COLOR_BUFFER_BIT);
 
         mat4x4_identity(m);
-        mat4x4_rotate_Z(m, m, (float) glfwGetTime());
+        // mat4x4_rotate_Z(m, m, (float) glfwGetTime());
         mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
         mat4x4_mul(mvp, p, m);
 
         glUseProgram(program);
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*)mvp);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, CIRCLE_SEGMENTS);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

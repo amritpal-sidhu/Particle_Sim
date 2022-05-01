@@ -167,7 +167,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 static void draw_circle(const float cx, const float cy, const float r, const int num_segments, struct vertex *v)
 {
     for(int i = 0; i < num_segments; ++i) {
-        float theta = 2.0f * PI * i / num_segments;
+        float theta = 2.0f * PI * i / (num_segments - 2);
 
         float x = r * cos(theta);
         float y = r * sin(theta);

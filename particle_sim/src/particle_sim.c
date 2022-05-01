@@ -7,7 +7,7 @@
 
 #include "GLFW/../../deps/linmath.h"
 
-#include "vector_3d.h"
+#include "vector.h"
 #include "mechanic_equations.h"
 
 #define PI                  3.14159265358979323846264338327950f
@@ -17,7 +17,7 @@
 struct vertex
 {
     float x, y;
-    float r, g, b;
+    color_t color;
 };
 
 
@@ -25,7 +25,7 @@ int file_to_text(FILE *fp, char **text);
 void shader_compile_and_link(GLuint *program, const char *vs_text, const char *fs_text);
 static void error_callback(int error, const char *description);
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
-static void draw_circle(const float cx, const float cy, const float r, const int num_segments, struct vertex *v);
+static void draw_circle(const float cx, const float cy, const float r, const int num_segments, const color_t color, struct vertex *v);
 static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location);
 
 static const char* vertex_shader_text =
@@ -51,9 +51,9 @@ const char vertex_shader_filename[32] = "shaders/vs.vert";
 const char fragment_shader_filename[32] = "shaders/fs.frag";
 struct vertex vertices[CIRCLE_SEGMENTS];
 // static const struct vertex vertices[3] = {
-//     { -0.6f, -0.4f, 1.f, 0.f, 0.f },
-//     {  0.6f, -0.4f, 0.f, 1.f, 0.f },
-//     {   0.f,  0.6f, 0.f, 0.f, 1.f }
+//     { -0.6f, -0.4f, {1.f, 0.f, 0.f} },
+//     {  0.6f, -0.4f, {0.f, 1.f, 0.f} },
+//     {   0.f,  0.6f, {0.f, 0.f, 1.f} }
 // };
 
 
@@ -61,6 +61,7 @@ int main(void)
 {
     const int initial_window_width = 640;
     const int initial_window_height = 480;
+    const color_t color = {1.0f, 1.0f, 1.0f};
     GLuint VBO, program;
     GLint mvp_location, vpos_location, vcol_location;
 
@@ -76,7 +77,7 @@ int main(void)
     // fclose(vert_fp);
     // fclose(frag_fp);
 
-    draw_circle(0.0f, 0.0f, 0.5f, CIRCLE_SEGMENTS, vertices);
+    draw_circle(0.0f, 0.0f, 0.5f, CIRCLE_SEGMENTS, color, vertices);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {
@@ -164,7 +165,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-static void draw_circle(const float cx, const float cy, const float r, const int num_segments, struct vertex *v)
+static void draw_circle(const float cx, const float cy, const float r, const int num_segments, const color_t color, struct vertex *v)
 {
     for(int i = 0; i < num_segments; ++i) {
         float theta = 2.0f * PI * i / (num_segments - 2);
@@ -174,9 +175,7 @@ static void draw_circle(const float cx, const float cy, const float r, const int
 
         v[i].x = x + cx;
         v[i].y = y + cy;
-        v[i].r = 1.0f;
-        v[i].g = 1.0f;
-        v[i].b = 1.0f;
+        v[i].color = color;
     }
 }
 
@@ -201,7 +200,7 @@ static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location)
 
         glUseProgram(program);
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*)mvp);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, CIRCLE_SEGMENTS);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_SEGMENTS);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

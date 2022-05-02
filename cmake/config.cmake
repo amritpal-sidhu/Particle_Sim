@@ -1,6 +1,6 @@
 
 set(CMAKE_C_STANDARD "99" CACHE STRING "" FORCE)
-set(CMAKE_C_FLAGS "-mtune=intel -Wall -Werror -Wstrict-prototypes -Wshadow" CACHE STRING "" FORCE)
+set(CMAKE_C_FLAGS "-Wall -Werror -Wstrict-prototypes -Wshadow" CACHE STRING "" FORCE)
 set(CMAKE_C_FLAGS_DEBUG "-gdwarf-2" CACHE STRING "" FORCE)
 set(CMAKE_C_LINK_EXECUTABLE "-static" CACHE STRING "" FORCE)
 

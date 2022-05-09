@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <windows.h>
+#include <malloc.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -21,40 +23,16 @@ struct vertex
 };
 
 
-int file_to_text(FILE *fp, char **text);
-void shader_compile_and_link(GLuint *program, const char *vs_text, const char *fs_text);
+static size_t get_file_size(FILE *fp);
+static void shader_compile_and_link(GLuint *program);
 static void error_callback(int error, const char *description);
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 static void draw_circle(const float cx, const float cy, const float r, const int num_segments, const color_t color, struct vertex *v);
 static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location);
 
-static const char* vertex_shader_text =
-"#version 110\n"
-"uniform mat4 MVP;\n"
-"attribute vec3 vCol;\n"
-"attribute vec2 vPos;\n"
-"varying vec3 color;\n"
-"void main()\n"
-"{\n"
-"    gl_Position = MVP * vec4(vPos, 0.0, 1.0);\n"
-"    color = vCol;\n"
-"}\n";
- 
-static const char* fragment_shader_text =
-"#version 110\n"
-"varying vec3 color;\n"
-"void main()\n"
-"{\n"
-"    gl_FragColor = vec4(color, 1.0);\n"
-"}\n";
-const char vertex_shader_filename[32] = "shaders/vs.vert";
-const char fragment_shader_filename[32] = "shaders/fs.frag";
-struct vertex vertices[CIRCLE_SEGMENTS];
-// static const struct vertex vertices[3] = {
-//     { -0.6f, -0.4f, {1.f, 0.f, 0.f} },
-//     {  0.6f, -0.4f, {0.f, 1.f, 0.f} },
-//     {   0.f,  0.6f, {0.f, 0.f, 1.f} }
-// };
+
+const char vertex_shader_filepath[] = "shaders/vs.vert";
+const char fragment_shader_filepath[] = "shaders/fs.frag";
 
 
 int main(void)
@@ -62,20 +40,9 @@ int main(void)
     const int initial_window_width = 640;
     const int initial_window_height = 480;
     const color_t color = {1.0f, 1.0f, 1.0f};
+    struct vertex vertices[CIRCLE_SEGMENTS];
     GLuint VBO, program;
     GLint mvp_location, vpos_location, vcol_location;
-
-    // char *vertex_shader_text = NULL;
-    // char *fragment_shader_text = NULL;
-
-    // FILE *vert_fp = fopen(vertex_shader_filename, "r");
-    // FILE *frag_fp = fopen(fragment_shader_filename, "r");
-
-    // file_to_text(vert_fp, &vertex_shader_text);
-    // file_to_text(frag_fp, &fragment_shader_text);
-
-    // fclose(vert_fp);
-    // fclose(frag_fp);
 
     draw_circle(0.0f, 0.0f, 0.5f, CIRCLE_SEGMENTS, color, vertices);
 
@@ -99,7 +66,7 @@ int main(void)
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    shader_compile_and_link(&program, vertex_shader_text, fragment_shader_text);
+    shader_compile_and_link(&program);
 
     mvp_location = glGetUniformLocation(program, "MVP");
     vpos_location = glGetAttribLocation(program, "vPos");
@@ -114,44 +81,65 @@ int main(void)
     
     glfwDestroyWindow(window);
     glfwTerminate();
-    // free(vertex_shader_text);
-    // free(fragment_shader_text);
 
     return 0;
 }
 
 
-int file_to_text(FILE *fp, char **text)
+static size_t get_file_size(FILE *fp)
 {
-    int retval = 1;
+    size_t size;
 
     fseek(fp, 0, SEEK_END);
-    const unsigned int size = (unsigned int)ftell(fp);
+    size = (size_t)ftell(fp);
     fseek(fp, 0, SEEK_SET);
-    if (!(*text=malloc(sizeof(char)*size)))
-        retval = 0;
-    else
-        fread(*text, sizeof(char), size, fp);
 
-    return retval;
+    return size;
 }
 
-void shader_compile_and_link(GLuint *program, const char *vs_text, const char *fs_text)
+static void shader_compile_and_link(GLuint *program)
 {
     GLuint vertex_shader, fragment_shader;
+    char vs_text[256];
+    char fs_text[256];
+    FILE *vs_fp = fopen(vertex_shader_filepath, "r");
+    FILE *fs_fp = fopen(fragment_shader_filepath, "r");
+
+    if (!vs_fp || !fs_fp)
+        exit(ERROR_FILE_NOT_FOUND);
+
+    const size_t vs_size = get_file_size(vs_fp);
+    const size_t fs_size = get_file_size(fs_fp);
+
+    // vs_text = _alinged_malloc(sizeof(char)*vs_size, sizeof(char));
+    // fs_text = _alinged_malloc(sizeof(char)*fs_size, sizeof(char));
+
+    // if (!vs_text || !fs_text)
+    //     exit(ERROR_NOT_ENOUGH_MEMORY);
+
+    if (fread(vs_text, sizeof(char), vs_size, vs_fp) != vs_size)
+        exit(ERROR_INVALID_DATA);
+    if (fread(fs_text, sizeof(char), fs_size, fs_fp) != fs_size)
+        exit(ERROR_INVALID_DATA);
+
+    fclose(vs_fp);
+    fclose(fs_fp);
 
     vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, &vs_text, NULL);
+    glShaderSource(vertex_shader, 1, (const GLchar * const*)&vs_text, NULL);
     glCompileShader(vertex_shader);
  
     fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, &fs_text, NULL);
+    glShaderSource(fragment_shader, 1, (const GLchar * const*)&fs_text, NULL);
     glCompileShader(fragment_shader);
  
     *program = glCreateProgram();
     glAttachShader(*program, vertex_shader);
     glAttachShader(*program, fragment_shader);
     glLinkProgram(*program);
+
+    // _alinged_free(vs_text);
+    // _alinged_free(fs_text);
 }
 
 static void error_callback(int error, const char *description)
@@ -194,7 +182,6 @@ static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location)
         glClear(GL_COLOR_BUFFER_BIT);
 
         mat4x4_identity(m);
-        // mat4x4_rotate_Z(m, m, (float) glfwGetTime());
         mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
         mat4x4_mul(mvp, p, m);
 

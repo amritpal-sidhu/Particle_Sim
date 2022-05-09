@@ -1,11 +1,15 @@
 #!/bin/bash
 
+set -e
+
+
 build_type="-D CMAKE_BUILD_TYPE=Debug"
 source_dir="${PWD}"
 build_dir="${PWD}/_build"
 cmake_cache_file="${build_dir}/CMakeCache.txt"
 toolchain_file="${PWD}/cmake/x86_64-w64-mingw32.cmake"
-log_level="--log-level=VERBOSE"
+generator="MinGW Makefiles"
+options=("-G $generator" "$build_type")
 
 
 check_toolchain()
@@ -15,10 +19,9 @@ check_toolchain()
 }
 
 
-if [[ -f $cmake_cache_file && check_toolchain ]]; then
-    cmake -S $source_dir -B $build_dir $build_type $log_level
-else
-    cmake --toolchain $toolchain_file -S $source_dir -B $build_dir  $build_type $log_level
+if ! [[ -f $cmake_cache_file && check_toolchain ]]; then
+    options+=("-T $toolchain_file")
 fi
 
+cmake $options -S $source_dir -B $build_dir
 cmake --build $build_dir

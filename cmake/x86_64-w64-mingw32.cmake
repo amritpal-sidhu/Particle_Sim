@@ -2,7 +2,7 @@
 set(CMAKE_SYSTEM_NAME       Windows)
 set(CMAKE_SYSTEM_PROCESSOR  x86_64)
 set(TOOLCHAIN_PREFIX "x86_64-w64-mingw32")
-set(MINGW_TOOLCHAIN_DIR "C:\\msys64\\mingw64\\bin")
+set(MINGW_TOOLCHAIN_DIR "/mingw64/bin")
 
 
 set(CMAKE_C_COMPILER        "${TOOLCHAIN_PREFIX}-gcc")

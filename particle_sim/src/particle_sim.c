@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <windows.h>
-#include <malloc.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -33,6 +31,8 @@ static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location);
 
 const char vertex_shader_filepath[] = "shaders/vs.vert";
 const char fragment_shader_filepath[] = "shaders/fs.frag";
+const char debug_output_filepath[] = "debug_output.txt";
+FILE *debug_fp;
 
 
 int main(void)
@@ -44,17 +44,28 @@ int main(void)
     GLuint VBO, program;
     GLint mvp_location, vpos_location, vcol_location;
 
+    printf("Attempting to open debug file\n");
+    debug_fp = fopen(debug_output_filepath, "w");
+    if (!debug_fp) {
+        printf("failed to open debug file\n");
+        return 1;
+    }
+
+    fprintf(debug_fp, "DEBUG OUTPUT\n");
+
     draw_circle(0.0f, 0.0f, 0.5f, CIRCLE_SEGMENTS, color, vertices);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {
         glfwTerminate();
+        fclose(debug_fp);
         return 1;
     }
 
     GLFWwindow *window = glfwCreateWindow(initial_window_width, initial_window_height, "Particle Sim", NULL, NULL);
     if (!window) {
         glfwTerminate();
+        fclose(debug_fp);
         return 1;
     }
     glfwSetKeyCallback(window, key_callback);
@@ -100,27 +111,38 @@ static size_t get_file_size(FILE *fp)
 static void shader_compile_and_link(GLuint *program)
 {
     GLuint vertex_shader, fragment_shader;
-    char vs_text[256];
-    char fs_text[256];
+    char *vs_text;
+    char *fs_text;
     FILE *vs_fp = fopen(vertex_shader_filepath, "r");
     FILE *fs_fp = fopen(fragment_shader_filepath, "r");
+    size_t rc;
 
     if (!vs_fp || !fs_fp)
-        exit(ERROR_FILE_NOT_FOUND);
+        exit(1);
 
     const size_t vs_size = get_file_size(vs_fp);
     const size_t fs_size = get_file_size(fs_fp);
 
-    // vs_text = _alinged_malloc(sizeof(char)*vs_size, sizeof(char));
-    // fs_text = _alinged_malloc(sizeof(char)*fs_size, sizeof(char));
+    vs_text = malloc(sizeof(char)*vs_size);
+    fs_text = malloc(sizeof(char)*fs_size);
 
-    // if (!vs_text || !fs_text)
-    //     exit(ERROR_NOT_ENOUGH_MEMORY);
+    if (!vs_text || !fs_text) {
+        fclose(debug_fp);
+        exit(1);
+    }
 
-    if (fread(vs_text, sizeof(char), vs_size, vs_fp) != vs_size)
-        exit(ERROR_INVALID_DATA);
-    if (fread(fs_text, sizeof(char), fs_size, fs_fp) != fs_size)
-        exit(ERROR_INVALID_DATA);
+    rc = fread(vs_text, sizeof(char), vs_size, vs_fp);
+    fprintf(debug_fp, "VERTEX SHADER READ: read %i bytes\n\n%s\n\n", rc, vs_text);
+    if (rc != vs_size) {
+        fclose(debug_fp);
+        exit(1);
+    }
+    rc = fread(fs_text, sizeof(char), fs_size, fs_fp);
+    fprintf(debug_fp, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n\n", rc, fs_text);
+    if (rc != fs_size) {
+        fclose(debug_fp);
+        exit(1);
+    }
 
     fclose(vs_fp);
     fclose(fs_fp);
@@ -138,8 +160,8 @@ static void shader_compile_and_link(GLuint *program)
     glAttachShader(*program, fragment_shader);
     glLinkProgram(*program);
 
-    // _alinged_free(vs_text);
-    // _alinged_free(fs_text);
+    free(vs_text);
+    free(fs_text);
 }
 
 static void error_callback(int error, const char *description)

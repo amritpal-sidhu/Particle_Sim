@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <math.h>
 
 #include <glad/glad.h>
@@ -27,12 +28,16 @@ static void error_callback(int error, const char *description);
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 static void draw_circle(const float cx, const float cy, const float r, const int num_segments, const color_t color, struct vertex *v);
 static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location);
+static void delay_ms(const float delay_in_ms);
 
 
-const char vertex_shader_filepath[] = "shaders/vs.vert";
-const char fragment_shader_filepath[] = "shaders/fs.frag";
-const char debug_output_filepath[] = "debug_output.txt";
-FILE *debug_fp;
+static const char vertex_shader_filepath[] = "shaders/vs.vert";
+static const char fragment_shader_filepath[] = "shaders/fs.frag";
+static const char debug_output_filepath[] = "debug_output.txt";
+static FILE *debug_fp;
+
+static float speed_scalar = 0.01f;
+static const float speed_scalar_increment = 0.001f;
 
 
 int main(void)
@@ -53,7 +58,7 @@ int main(void)
 
     fprintf(debug_fp, "DEBUG OUTPUT\n");
 
-    draw_circle(0.0f, 0.0f, 0.5f, CIRCLE_SEGMENTS, color, vertices);
+    draw_circle(0.0f, 0.0f, 0.1f, CIRCLE_SEGMENTS, color, vertices);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {
@@ -173,6 +178,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
+    else if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+        speed_scalar += speed_scalar_increment;
+    else if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+        speed_scalar -= speed_scalar_increment;
 }
 
 static void draw_circle(const float cx, const float cy, const float r, const int num_segments, const color_t color, struct vertex *v)
@@ -191,6 +200,9 @@ static void draw_circle(const float cx, const float cy, const float r, const int
 
 static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location)
 {
+    int movement_direction_flag = 1; // -1 == move left, 1 == move right
+    float particle1_x = 1.0f;
+
     while (!glfwWindowShouldClose(window)) {
         
         float ratio;
@@ -203,7 +215,7 @@ static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location)
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        mat4x4_identity(m);
+        mat4x4_translate(m, particle1_x, 0.0f, 0.0f);
         mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
         mat4x4_mul(mvp, p, m);
 
@@ -213,5 +225,22 @@ static void render_loop(GLFWwindow *window, GLuint program, GLint mvp_location)
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        if (particle1_x >= 1.0f)
+            movement_direction_flag = -1;
+        else if (particle1_x <= -1.0f)
+            movement_direction_flag = 1;
+        particle1_x += speed_scalar * movement_direction_flag;
+
+        delay_ms(10);
     }
+}
+
+static void delay_ms(const float delay_in_ms)
+{
+    const float clocks_per_ms = (float)CLOCKS_PER_SEC / 1000;
+    const float start_tick = clocks_per_ms * clock();
+    const float end_tick = start_tick + (clocks_per_ms * delay_in_ms);
+
+    while (clocks_per_ms * clock() <= end_tick);
 }

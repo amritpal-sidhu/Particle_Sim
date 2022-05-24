@@ -3,21 +3,6 @@ include_guard(GLOBAL)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE PATH "" FORCE)
-
-add_compile_definitions(POSIX UNICODE _UNICODE)
-
-# Options for GLFW
-set(GLFW_BUILD_SHARED_LIBRARY ON CACHE BOOL "" FORCE)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-
-# Options for GLAD
-set(GLAD_PROFILE "core" CACHE STRING "" FORCE)
-set(GLAD_API "gl=4.6" CACHE STRING "" FORCE)
-set(GLAD_REPRODUCIBLE ON CACHE BOOL "" FORCE)
-
 # Check for ruby program needed by Unity script dependency
 find_program(RUBY_PROGRAM ruby /usr/bin REQUIRED)
 

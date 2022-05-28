@@ -17,5 +17,5 @@ Use the build.sh script to build the project.
 
 ## Dependencies
 
- * CMake (version 3.22 or higher)
- * MinGW-W64
+ * [CMake](https://cmake.org/download/) (version 3.22 or higher)
+ * [MinGW-W64](https://www.mingw-w64.org/) ([MSYS2](https://www.msys2.org/) has a MINGW64 terminal as well)

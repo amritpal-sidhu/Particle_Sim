@@ -11,7 +11,7 @@
 #include "vector.h"
 #include "mechanic_equations.h"
 
-#define PI                  3.14159265358979323846264338327950f
+#define PI                  3.14159265358979323846264338327950
 #define CIRCLE_SEGMENTS     32
 #define P_COUNT             1
 #define E_COUNT             2
@@ -19,10 +19,9 @@
 
 struct vertex
 {
-    float x, y;
+    vector_3d_t pos;
     color_t color;
 };
-
 
 static void error_callback(int error, const char *description);
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
@@ -32,10 +31,10 @@ static size_t get_file_size(FILE *fp);
 static void shader_compile_and_link(GLuint *program);
 
 static void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_size);
-static void vertex_buffer_draw(const GLuint VBO, const float ratio, const float x, const float y, const float z);
+static void vertex_buffer_draw(const GLuint VBO, const float ratio, const vector_3d_t pos);
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO);
 
-static void draw_circle(const float cx, const float cy, const float r, const int num_segments, const color_t color, struct vertex *v);
+static void create_circle_vertex_array(struct vertex *v, const vector_3d_t center, const float r, const int num_segments, const color_t color);
 static void busy_wait_ms(const float delay_in_ms);
 
 
@@ -51,6 +50,7 @@ static FILE *debug_fp;
 
 static GLint vpos_location, vcol_location, mvp_location;
 static mat4x4 v;
+static vector_3d_t p_pos[P_COUNT], e_pos[E_COUNT];
 
 
 /* Entry point */
@@ -59,8 +59,9 @@ int main(void)
     const int initial_window_width = 640;
     const int initial_window_height = 480;
     
-    const float p_radius = 0.1f;
-    const float e_radius = 0.05f;
+    const vector_3d_t circle_center = {0};
+    const double p_radius = 0.1;
+    const double e_radius = 0.05;
     const color_t p_color = {1.0f, 0.0f, 0.0f};
     const color_t e_color = {0.0f, 0.0f, 1.0f};
     struct vertex p_vertices[CIRCLE_SEGMENTS];
@@ -76,8 +77,12 @@ int main(void)
 
     fprintf(debug_fp, "*** DEBUG OUTPUT LOG ***\n\n");
 
-    draw_circle(0.0f, 0.0f, p_radius, CIRCLE_SEGMENTS, p_color, p_vertices);
-    draw_circle(0.0f, 0.0f, e_radius, CIRCLE_SEGMENTS, e_color, e_vertices);
+    p_pos[0].i = 0;         p_pos[0].j = -0.25;     p_pos[0].k = 0;
+    e_pos[0].i = -0.25;     e_pos[0].j = 0;         e_pos[0].k = 0;
+    e_pos[1].i = 0.25;      e_pos[1].j = 0;         e_pos[1].k = 0;
+
+    create_circle_vertex_array(p_vertices, circle_center, p_radius, CIRCLE_SEGMENTS, p_color);
+    create_circle_vertex_array(e_vertices, circle_center, e_radius, CIRCLE_SEGMENTS, e_color);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {
@@ -239,11 +244,11 @@ static void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const
     glBufferData(GL_ARRAY_BUFFER, v_size, vertices, GL_STATIC_DRAW);
 }
 
-static void vertex_buffer_draw(const GLuint VBO, const float ratio, const float x, const float y, const float z)
+static void vertex_buffer_draw(const GLuint VBO, const float ratio, const vector_3d_t pos)
 {
     mat4x4 m, p, vp, mvp;
 
-    mat4x4_translate(m, x, y, z);
+    mat4x4_translate(m, pos.i, pos.j, pos.k);
     mat4x4_identity(v);
     mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
     mat4x4_mul(mvp, p, m);
@@ -255,9 +260,9 @@ static void vertex_buffer_draw(const GLuint VBO, const float ratio, const float 
      * to properly set the variables.
      */
     glEnableVertexAttribArray((GLuint)vpos_location);
-    glVertexAttribPointer((GLuint)vpos_location, 2, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*) 0);
+    glVertexAttribPointer((GLuint)vpos_location, 3, GL_DOUBLE, GL_FALSE, sizeof(struct vertex), (void*) 0);
     glEnableVertexAttribArray((GLuint)vcol_location);
-    glVertexAttribPointer((GLuint)vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*) (sizeof(float) * 2));
+    glVertexAttribPointer((GLuint)vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*) (sizeof(double) * 3));
 
     glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*)mvp);
     glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_SEGMENTS);
@@ -265,6 +270,9 @@ static void vertex_buffer_draw(const GLuint VBO, const float ratio, const float 
 
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
 {
+    const float move_increment = 0.03f;
+    static int move_dir_flag = -1;
+
     while (!glfwWindowShouldClose(window)) {
         
         float ratio;
@@ -277,27 +285,40 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
-        vertex_buffer_draw(VBO[0], ratio, 0.0f, -0.5f, 0.0f);
-        vertex_buffer_draw(VBO[1], ratio, 1.0f, 0.0f, 0.0f);
-        vertex_buffer_draw(VBO[2], ratio, -1.0f, 0.0f, 0.0f);
+        vertex_buffer_draw(VBO[0], ratio, p_pos[0]);
+        vertex_buffer_draw(VBO[1], ratio, e_pos[0]);
+        vertex_buffer_draw(VBO[2], ratio, e_pos[1]);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        if (move_dir_flag == -1) {
+            e_pos[0].i -= move_increment;
+            e_pos[1].i += move_increment;
+            if (e_pos[0].i < -0.84f) move_dir_flag = 1;
+        }
+        else {
+            e_pos[0].i += move_increment;
+            e_pos[1].i -= move_increment;
+            if (e_pos[0].i > -0.26f) move_dir_flag = -1;
+        }
+
 
         busy_wait_ms(10);
     }
 }
 
-static void draw_circle(const float cx, const float cy, const float r, const int num_segments, const color_t color, struct vertex *v)
+static void create_circle_vertex_array(struct vertex *v, const vector_3d_t center, const float r, const int num_segments, const color_t color)
 {
     for(int i = 0; i < num_segments; ++i) {
-        float theta = 2.0f * PI * i / (num_segments - 2);
+        double theta = 2.0f * PI * i / (num_segments - 2);
 
-        float x = r * cos(theta);
-        float y = r * sin(theta);
+        double x = r * cos(theta);
+        double y = r * sin(theta);
 
-        v[i].x = x + cx;
-        v[i].y = y + cy;
+        v[i].pos.i = x + center.i;
+        v[i].pos.j = y + center.j;
+        v[i].pos.k = 0;
         v[i].color = color;
     }
 }

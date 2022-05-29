@@ -3,7 +3,10 @@ set(UNITY_DIR ${CMAKE_SOURCE_DIR}/Third-Party/Unity)
 set(GLFW_DIR ${CMAKE_SOURCE_DIR}/Third-Party/glfw)
 set(GENERATE_TEST_RUNNER ${UNITY_DIR}/auto/generate_test_runner.rb)
 
-file(GLOB LOCAL_SOURCES src/*.c)
+set(LOCAL_SOURCES particle_sim.c
+                  vector.c
+                  mechanic_equations.c)
+list(TRANSFORM LOCAL_SOURCES PREPEND ${CMAKE_CURRENT_LIST_DIR}/src/)
 
 add_compile_options(
     -Wsign-conversion

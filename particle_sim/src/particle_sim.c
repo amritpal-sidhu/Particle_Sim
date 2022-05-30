@@ -34,9 +34,11 @@ static void shader_compile_and_link(GLuint *program);
 static void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_size);
 static void vertex_buffer_draw(const GLuint VBO, const float ratio, const vector_3d_t pos);
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO);
-static void update_positions(void);
 
-static void create_circle_vertex_array(struct vertex *v, const vector_3d_t center, const float r, const int num_segments, const color_t color);
+static void update_positions(void);
+static void correct_signs(vector_3d_t *F, const vector_3d_t a, const vector_3d_t b, const int sign);
+
+static void create_circle_vertex_array(struct vertex *v, const vector_2d_t center, const float r, const int num_segments, const color_t color);
 static void busy_wait_ms(const float delay_in_ms);
 
 
@@ -61,7 +63,7 @@ int main(void)
     const int initial_window_width = 640;
     const int initial_window_height = 480;
     
-    const vector_3d_t circle_center = {0};
+    const vector_2d_t circle_center = {0};
     const double p_radius = 0.1;
     const double e_radius = 0.05;
     const color_t p_color = {1.0f, 0.0f, 0.0f};
@@ -300,7 +302,7 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
 
 static void update_positions(void)
 {
-    const double fake_sample_period = 1E-3;
+    const double fake_sample_period = 1E-2;
     static vector_3d_t p_impulse_integral;
     static vector_3d_t e0_impulse_integral;
     static vector_3d_t e1_impulse_integral;
@@ -314,12 +316,18 @@ static void update_positions(void)
     const double theta_e1_p = vector_3d__theta(e[1].pos, p[0].pos);
     const double theta_e0_e1 = vector_3d__theta(e[0].pos, e[1].pos);
 
-    const vector_3d_t e0_p_F = {.i = e0_p_F_mag*cos(theta_e0_p), .j = e0_p_F_mag*sin(theta_e0_p), .k = 0};
-    const vector_3d_t e1_p_F = {.i = e1_p_F_mag*cos(theta_e1_p), .j = e1_p_F_mag*sin(theta_e1_p), .k = 0};
-    const vector_3d_t e0_e1_F = {.i = e0_e1_F_mag*cos(theta_e0_e1), .j = e0_e1_F_mag*sin(theta_e0_e1), .k = 0};
+    vector_3d_t e0_p_F = {.i = e0_p_F_mag*cos(theta_e0_p), .j = e0_p_F_mag*sin(theta_e0_p)};
+    vector_3d_t e1_p_F = {.i = e1_p_F_mag*cos(theta_e1_p), .j = e1_p_F_mag*sin(theta_e1_p)};
+    vector_3d_t e0_e1_F = {.i = e0_e1_F_mag*cos(theta_e0_e1), .j = e0_e1_F_mag*sin(theta_e0_e1)};
+    vector_3d_t e1_e0_F = vector_3d__scale(e0_e1_F, -1);
+
+    correct_signs(&e0_p_F, e[0].pos, p[0].pos, 1);
+    correct_signs(&e1_p_F, e[1].pos, p[0].pos, 1);
+    correct_signs(&e0_e1_F, e[0].pos, e[1].pos, -1);
+    correct_signs(&e1_e0_F, e[1].pos, e[0].pos, -1);
 
     const vector_3d_t e0_resultant_F = vector_3d__add(e0_p_F, e0_e1_F);
-    const vector_3d_t e1_resultant_F = vector_3d__add(e1_p_F, e0_e1_F);
+    const vector_3d_t e1_resultant_F = vector_3d__add(e1_p_F, e1_e0_F);
 
     const vector_3d_t e0_velocity = velocity_induced_by_force(&e0_impulse_integral, e0_resultant_F, ELECTRON_MASS, fake_sample_period);
     const vector_3d_t e1_velocity = velocity_induced_by_force(&e1_impulse_integral, e1_resultant_F, ELECTRON_MASS, fake_sample_period);
@@ -330,11 +338,24 @@ static void update_positions(void)
     e[1].pos.i += e1_velocity.i*fake_sample_period;
     e[1].pos.j += e1_velocity.j*fake_sample_period;
 
+    fprintf(debug_fp, "THETA DEBUG: e0_p is %f, e1_p is %f", theta_e0_p*(180/PI), theta_e1_p*(180/PI));
+    fprintf(debug_fp, "FORCE DEBUG: e0_p_F is Fi = %E, Fj = %E\n", e0_p_F.i, e0_p_F.j);
+    fprintf(debug_fp, "FORCE DEBUG: e1_p_F is Fi = %E, Fj = %E\n", e1_p_F.i, e1_p_F.j);
+    fprintf(debug_fp, "FORCE DEBUG: e0_e1_F is Fi = %E, Fj = %E\n", e0_e1_F.i, e0_e1_F.j);
     fprintf(debug_fp, "DISPLACMENT DEBUG: For e0, di = %E and dj = %E\n", e0_velocity.i*fake_sample_period, e0_velocity.j*fake_sample_period);
-    fprintf(debug_fp, "DISPLACMENT DEBUG: For e1, di = %E and dj = %E\n", e1_velocity.i*fake_sample_period, e1_velocity.j*fake_sample_period);
+    fprintf(debug_fp, "DISPLACMENT DEBUG: For e1, di = %E and dj = %E\n\n", e1_velocity.i*fake_sample_period, e1_velocity.j*fake_sample_period);
 }
 
-static void create_circle_vertex_array(struct vertex *v, const vector_3d_t center, const float r, const int num_segments, const color_t color)
+static void correct_signs(vector_3d_t *F, const vector_3d_t a, const vector_3d_t b, const int sign)
+{
+    const vector_3d_t F_dir = sign == 1 ? vector_3d__sub(b, a) : vector_3d__sub(a,b);
+
+    if ((F->i > 0 && a.i < 0) || (F->i < 0 && a.i > 0)) F->i *= -1;
+    if ((F->j > 0 && a.j < 0) || (F->j < 0 && a.j > 0)) F->j *= -1;
+    if ((F->k > 0 && a.k < 0) || (F->k < 0 && a.k > 0)) F->k *= -1;
+}
+
+static void create_circle_vertex_array(struct vertex *v, const vector_2d_t center, const float r, const int num_segments, const color_t color)
 {
     for(int i = 0; i < num_segments; ++i) {
         double theta = 2.0f * PI * i / (num_segments - 2);
@@ -344,7 +365,6 @@ static void create_circle_vertex_array(struct vertex *v, const vector_3d_t cente
 
         v[i].pos.i = x + center.i;
         v[i].pos.j = y + center.j;
-        v[i].pos.k = 0;
         v[i].color = color;
     }
 }

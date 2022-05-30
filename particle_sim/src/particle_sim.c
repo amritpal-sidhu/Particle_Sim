@@ -82,9 +82,9 @@ int main(void)
     fprintf(debug_fp, "*** DEBUG OUTPUT LOG ***\n\n");
 
     /* particle struct is a WIP */
-    p[0].id = 0, p[0].charge = 1, p[0].mass = 1839, p[0].pos.i = 0, p[0].pos.j = -0.25, p[0].pos.k = 0;
-    e[0].id = 1, e[0].charge = -1, e[0].mass = 1, e[0].pos.i = -0.25, e[0].pos.j = 0, e[0].pos.k = 0;
-    e[1].id = 2, e[1].charge = -1, e[1].mass = 1, e[1].pos.i = 0.25, e[1].pos.j = 0, e[1].pos.k = 0;
+    p[0].id = 0, p[0].charge = PROTON_CHARGE,   p[0].mass = PROTON_MASS,   p[0].pos.i = 0,      p[0].pos.j = -0.25, p[0].pos.k = 0;
+    e[0].id = 1, e[0].charge = ELECTRON_CHARGE, e[0].mass = ELECTRON_MASS, e[0].pos.i = -0.25,  e[0].pos.j = 0,     e[0].pos.k = 0;
+    e[1].id = 2, e[1].charge = ELECTRON_CHARGE, e[1].mass = ELECTRON_MASS, e[1].pos.i = 0.25,   e[1].pos.j = 0,     e[1].pos.k = 0;
 
     create_circle_vertex_array(p_vertices, circle_center, p_radius, CIRCLE_SEGMENTS, p_color);
     create_circle_vertex_array(e_vertices, circle_center, e_radius, CIRCLE_SEGMENTS, e_color);
@@ -302,15 +302,15 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
 
 static void update_positions(void)
 {
-    const double fake_sample_period = 8E-3;
+    const double fake_sample_period = 4E-3;
     static vector_3d_t p_impulse_integral;
     static vector_3d_t e0_impulse_integral;
     static vector_3d_t e1_impulse_integral;
 
     /* Playing with the numbers for now */
-    const double e0_p_F_mag = electric_force(2*PROTON_CHARGE, ELECTRON_CHARGE, vector_3d__distance(e[0].pos, p[0].pos));
-    const double e1_p_F_mag = electric_force(2*PROTON_CHARGE, ELECTRON_CHARGE, vector_3d__distance(e[1].pos, p[0].pos));
-    const double e0_e1_F_mag = electric_force(ELECTRON_CHARGE, ELECTRON_CHARGE, vector_3d__distance(e[0].pos, e[1].pos));
+    const double e0_p_F_mag = electric_force(2*p[0].charge, e[0].charge, vector_3d__distance(e[0].pos, p[0].pos));
+    const double e1_p_F_mag = electric_force(2*p[0].charge, e[1].charge, vector_3d__distance(e[1].pos, p[0].pos));
+    const double e0_e1_F_mag = electric_force(e[0].charge, e[1].charge, vector_3d__distance(e[0].pos, e[1].pos));
 
     const double theta_e0_p = vector_3d__theta(e[0].pos, p[0].pos);
     const double theta_e1_p = vector_3d__theta(e[1].pos, p[0].pos);
@@ -321,6 +321,7 @@ static void update_positions(void)
     vector_3d_t e0_e1_F = {.i = e0_e1_F_mag*cos(theta_e0_e1), .j = e0_e1_F_mag*sin(theta_e0_e1)};
     vector_3d_t e1_e0_F = vector_3d__scale(e0_e1_F, -1);
 
+    /* Temporary fix for acos() [0, PI] bound */
     correct_signs(&e0_p_F, e[0].pos, p[0].pos, 1);
     correct_signs(&e1_p_F, e[1].pos, p[0].pos, 1);
     correct_signs(&e0_e1_F, e[0].pos, e[1].pos, -1);

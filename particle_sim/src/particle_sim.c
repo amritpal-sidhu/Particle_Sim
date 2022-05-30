@@ -10,6 +10,7 @@
 
 #include "vector.h"
 #include "mechanic_equations.h"
+#include "particle.h"
 
 #define PI                  3.14159265358979323846264338327950
 #define CIRCLE_SEGMENTS     32
@@ -33,6 +34,7 @@ static void shader_compile_and_link(GLuint *program);
 static void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_size);
 static void vertex_buffer_draw(const GLuint VBO, const float ratio, const vector_3d_t pos);
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO);
+static void update_positions(void);
 
 static void create_circle_vertex_array(struct vertex *v, const vector_3d_t center, const float r, const int num_segments, const color_t color);
 static void busy_wait_ms(const float delay_in_ms);
@@ -50,7 +52,7 @@ static FILE *debug_fp;
 
 static GLint vpos_location, vcol_location, mvp_location;
 static mat4x4 v;
-static vector_3d_t p_pos[P_COUNT], e_pos[E_COUNT];
+static particle_t p[P_COUNT], e[E_COUNT];
 
 
 /* Entry point */
@@ -77,9 +79,10 @@ int main(void)
 
     fprintf(debug_fp, "*** DEBUG OUTPUT LOG ***\n\n");
 
-    p_pos[0].i = 0;         p_pos[0].j = -0.25;     p_pos[0].k = 0;
-    e_pos[0].i = -0.25;     e_pos[0].j = 0;         e_pos[0].k = 0;
-    e_pos[1].i = 0.25;      e_pos[1].j = 0;         e_pos[1].k = 0;
+    /* particle struct is a WIP */
+    p[0].id = 0, p[0].charge = 1, p[0].mass = 1839, p[0].pos.i = 0, p[0].pos.j = -0.25, p[0].pos.k = 0;
+    e[0].id = 1, e[0].charge = -1, e[0].mass = 1, e[0].pos.i = -0.25, e[0].pos.j = 0, e[0].pos.k = 0;
+    e[1].id = 2, e[1].charge = -1, e[1].mass = 1, e[1].pos.i = 0.25, e[1].pos.j = 0, e[1].pos.k = 0;
 
     create_circle_vertex_array(p_vertices, circle_center, p_radius, CIRCLE_SEGMENTS, p_color);
     create_circle_vertex_array(e_vertices, circle_center, e_radius, CIRCLE_SEGMENTS, e_color);
@@ -270,9 +273,6 @@ static void vertex_buffer_draw(const GLuint VBO, const float ratio, const vector
 
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
 {
-    const float move_increment = 0.03f;
-    static int move_dir_flag = -1;
-
     while (!glfwWindowShouldClose(window)) {
         
         float ratio;
@@ -285,27 +285,53 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
-        vertex_buffer_draw(VBO[0], ratio, p_pos[0]);
-        vertex_buffer_draw(VBO[1], ratio, e_pos[0]);
-        vertex_buffer_draw(VBO[2], ratio, e_pos[1]);
+        vertex_buffer_draw(VBO[0], ratio, p[0].pos);
+        vertex_buffer_draw(VBO[1], ratio, e[0].pos);
+        vertex_buffer_draw(VBO[2], ratio, e[1].pos);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        if (move_dir_flag == -1) {
-            e_pos[0].i -= move_increment;
-            e_pos[1].i += move_increment;
-            if (e_pos[0].i < -0.84f) move_dir_flag = 1;
-        }
-        else {
-            e_pos[0].i += move_increment;
-            e_pos[1].i -= move_increment;
-            if (e_pos[0].i > -0.26f) move_dir_flag = -1;
-        }
-
+        update_positions();
 
         busy_wait_ms(10);
     }
+}
+
+static void update_positions(void)
+{
+    const double fake_sample_period = 1E-3;
+    static vector_3d_t p_impulse_integral;
+    static vector_3d_t e0_impulse_integral;
+    static vector_3d_t e1_impulse_integral;
+
+    /* Playing with the numbers for now */
+    const double e0_p_F_mag = electric_force(2*PROTON_CHARGE, ELECTRON_CHARGE, vector_3d__distance(e[0].pos, p[0].pos));
+    const double e1_p_F_mag = electric_force(2*PROTON_CHARGE, ELECTRON_CHARGE, vector_3d__distance(e[1].pos, p[0].pos));
+    const double e0_e1_F_mag = electric_force(ELECTRON_CHARGE, ELECTRON_CHARGE, vector_3d__distance(e[0].pos, e[1].pos));
+
+    const double theta_e0_p = vector_3d__theta(e[0].pos, p[0].pos);
+    const double theta_e1_p = vector_3d__theta(e[1].pos, p[0].pos);
+    const double theta_e0_e1 = vector_3d__theta(e[0].pos, e[1].pos);
+
+    const vector_3d_t e0_p_F = {.i = e0_p_F_mag*cos(theta_e0_p), .j = e0_p_F_mag*sin(theta_e0_p), .k = 0};
+    const vector_3d_t e1_p_F = {.i = e1_p_F_mag*cos(theta_e1_p), .j = e1_p_F_mag*sin(theta_e1_p), .k = 0};
+    const vector_3d_t e0_e1_F = {.i = e0_e1_F_mag*cos(theta_e0_e1), .j = e0_e1_F_mag*sin(theta_e0_e1), .k = 0};
+
+    const vector_3d_t e0_resultant_F = vector_3d__add(e0_p_F, e0_e1_F);
+    const vector_3d_t e1_resultant_F = vector_3d__add(e1_p_F, e0_e1_F);
+
+    const vector_3d_t e0_velocity = velocity_induced_by_force(&e0_impulse_integral, e0_resultant_F, ELECTRON_MASS, fake_sample_period);
+    const vector_3d_t e1_velocity = velocity_induced_by_force(&e1_impulse_integral, e1_resultant_F, ELECTRON_MASS, fake_sample_period);
+
+    e[0].pos.i += e0_velocity.i*fake_sample_period;
+    e[0].pos.j += e0_velocity.j*fake_sample_period;
+
+    e[1].pos.i += e1_velocity.i*fake_sample_period;
+    e[1].pos.j += e1_velocity.j*fake_sample_period;
+
+    fprintf(debug_fp, "DISPLACMENT DEBUG: For e0, di = %E and dj = %E\n", e0_velocity.i*fake_sample_period, e0_velocity.j*fake_sample_period);
+    fprintf(debug_fp, "DISPLACMENT DEBUG: For e1, di = %E and dj = %E\n", e1_velocity.i*fake_sample_period, e1_velocity.j*fake_sample_period);
 }
 
 static void create_circle_vertex_array(struct vertex *v, const vector_3d_t center, const float r, const int num_segments, const color_t color)

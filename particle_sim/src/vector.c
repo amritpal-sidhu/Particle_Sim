@@ -36,10 +36,20 @@ vector_2d_t vector_2d__sub(const vector_2d_t a, const vector_2d_t b)
     return c;
 }
 
+vector_2d_t vector_2d__scale(const vector_2d_t a, const double scalar)
+{
+    vector_2d_t result = {.i = scalar * a.i, .j = scalar * a.j};
+    return result;
+}
 
 double vector_2d__dot_product(const vector_2d_t a, const vector_2d_t b)
 {
     return a.i*b.i + a.j*b.j;
+}
+
+double vector_2d__theta(const vector_2d_t a, const vector_2d_t b)
+{
+    return acos(vector_2d__dot_product(a, b) / (vector_2d__mag(a) * vector_2d__mag(b)));
 }
 
 double vector_3d__mag(const vector_3d_t a)
@@ -78,10 +88,20 @@ vector_3d_t vector_3d__sub(const vector_3d_t a, const vector_3d_t b)
     return c;
 }
 
+vector_3d_t vector_3d__scale(const vector_3d_t a, const double scalar)
+{
+    vector_3d_t result = {.i = scalar * a.i, .j = scalar * a.j, .k = scalar * a.k};
+    return result;
+}
 
 double vector_3d__dot_product(const vector_3d_t a, const vector_3d_t b)
 {
     return a.i*b.i + a.j*b.j + a.k*b.k;
+}
+
+double vector_3d__theta(const vector_3d_t a, const vector_3d_t b)
+{
+    return acos(vector_3d__dot_product(a, b) / (vector_3d__mag(a) * vector_3d__mag(b)));
 }
 
 vector_3d_t vector_3d__cross_product(const vector_3d_t a, const vector_3d_t b)

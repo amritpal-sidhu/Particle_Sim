@@ -302,7 +302,7 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
 
 static void update_positions(void)
 {
-    const double fake_sample_period = 1E-2;
+    const double fake_sample_period = 8E-3;
     static vector_3d_t p_impulse_integral;
     static vector_3d_t e0_impulse_integral;
     static vector_3d_t e1_impulse_integral;
@@ -329,30 +329,30 @@ static void update_positions(void)
     const vector_3d_t e0_resultant_F = vector_3d__add(e0_p_F, e0_e1_F);
     const vector_3d_t e1_resultant_F = vector_3d__add(e1_p_F, e1_e0_F);
 
-    const vector_3d_t e0_velocity = velocity_induced_by_force(&e0_impulse_integral, e0_resultant_F, ELECTRON_MASS, fake_sample_period);
-    const vector_3d_t e1_velocity = velocity_induced_by_force(&e1_impulse_integral, e1_resultant_F, ELECTRON_MASS, fake_sample_period);
+    e[0].vel = velocity_induced_by_force(&e0_impulse_integral, e0_resultant_F, ELECTRON_MASS, fake_sample_period);
+    e[1].vel = velocity_induced_by_force(&e1_impulse_integral, e1_resultant_F, ELECTRON_MASS, fake_sample_period);
 
-    e[0].pos.i += e0_velocity.i*fake_sample_period;
-    e[0].pos.j += e0_velocity.j*fake_sample_period;
+    e[0].pos.i += e[0].vel.i*fake_sample_period;
+    e[0].pos.j += e[0].vel.j*fake_sample_period;
 
-    e[1].pos.i += e1_velocity.i*fake_sample_period;
-    e[1].pos.j += e1_velocity.j*fake_sample_period;
+    e[1].pos.i += e[1].vel.i*fake_sample_period;
+    e[1].pos.j += e[1].vel.j*fake_sample_period;
 
     fprintf(debug_fp, "THETA DEBUG: e0_p is %f, e1_p is %f", theta_e0_p*(180/PI), theta_e1_p*(180/PI));
     fprintf(debug_fp, "FORCE DEBUG: e0_p_F is Fi = %E, Fj = %E\n", e0_p_F.i, e0_p_F.j);
     fprintf(debug_fp, "FORCE DEBUG: e1_p_F is Fi = %E, Fj = %E\n", e1_p_F.i, e1_p_F.j);
     fprintf(debug_fp, "FORCE DEBUG: e0_e1_F is Fi = %E, Fj = %E\n", e0_e1_F.i, e0_e1_F.j);
-    fprintf(debug_fp, "DISPLACMENT DEBUG: For e0, di = %E and dj = %E\n", e0_velocity.i*fake_sample_period, e0_velocity.j*fake_sample_period);
-    fprintf(debug_fp, "DISPLACMENT DEBUG: For e1, di = %E and dj = %E\n\n", e1_velocity.i*fake_sample_period, e1_velocity.j*fake_sample_period);
+    fprintf(debug_fp, "DISPLACMENT DEBUG: For e0, di = %E and dj = %E\n",  e[0].vel.i*fake_sample_period,  e[0].vel.j*fake_sample_period);
+    fprintf(debug_fp, "DISPLACMENT DEBUG: For e1, di = %E and dj = %E\n\n", e[1].vel.i*fake_sample_period, e[1].vel.j*fake_sample_period);
 }
 
 static void correct_signs(vector_3d_t *F, const vector_3d_t a, const vector_3d_t b, const int sign)
 {
     const vector_3d_t F_dir = sign == 1 ? vector_3d__sub(b, a) : vector_3d__sub(a,b);
 
-    if ((F->i > 0 && a.i < 0) || (F->i < 0 && a.i > 0)) F->i *= -1;
-    if ((F->j > 0 && a.j < 0) || (F->j < 0 && a.j > 0)) F->j *= -1;
-    if ((F->k > 0 && a.k < 0) || (F->k < 0 && a.k > 0)) F->k *= -1;
+    if ((F->i > 0 && F_dir.i < 0) || (F->i < 0 && F_dir.i > 0)) F->i *= -1;
+    if ((F->j > 0 && F_dir.j < 0) || (F->j < 0 && F_dir.j > 0)) F->j *= -1;
+    if ((F->k > 0 && F_dir.k < 0) || (F->k < 0 && F_dir.k > 0)) F->k *= -1;
 }
 
 static void create_circle_vertex_array(struct vertex *v, const vector_2d_t center, const float r, const int num_segments, const color_t color)

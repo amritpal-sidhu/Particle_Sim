@@ -5,6 +5,7 @@ set(GENERATE_TEST_RUNNER ${UNITY_DIR}/auto/generate_test_runner.rb)
 
 set(LOCAL_SOURCES particle_sim.c
                   vector.c
+                  particle.c
                   mechanic_equations.c)
 list(TRANSFORM LOCAL_SOURCES PREPEND ${CMAKE_CURRENT_LIST_DIR}/src/)
 

@@ -24,11 +24,12 @@ case $1 in
 
 "-h"|"--help"|*)
     echo "Usage: ./build.sh [options]"
+    echo ""
     echo "Options:"
-    echo "When called with no options cmake will configure and build the project"
-    echo "-h, --help         print this message"
-    echo "-c, --clean        clean the cmake project"
-    echo "-d, --delete       remove the build directory"
+    echo "  When called with no options cmake will configure and build the project"
+    echo "  -h, --help         print this message"
+    echo "  -c, --clean        clean the cmake project"
+    echo "  -d, --delete       remove the build directory"
 ;;
 
 esac

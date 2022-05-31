@@ -26,14 +26,13 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO);
 
 static void update_positions(void);
+
+/**
+ * Current solution to acos output range of [0, PI]
+ */
 static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int sign);
 
 
-/**
- * Local global variables
- *   TODO: Use parameter passing once the code becomes
- *         more stable.
- */
 static struct shader_variables shader_vars;
 
 static particle_t *particles[P_COUNT+E_COUNT];
@@ -238,10 +237,11 @@ static void update_positions(void)
         for (size_t other_id = 0; other_id < P_COUNT+E_COUNT; ++other_id)
             F_resultant = vector3d__add(F_resultant, F[other_id]);
 
-        particles[current_id]->vel = velocity_induced_by_force(&impulse_integral[current_id], F_resultant, particles[current_id]->mass, sample_period);
+        update_momentum(&particles[current_id]->momentum_integral, F_resultant, sample_period);
+        const vector3d_t change_in_velocity = vector3d__scale(particles[current_id]->momentum_integral, 1 / particles[current_id]->mass);
 
-        particles[current_id]->pos.i += sample_period * particles[current_id]->vel.i;
-        particles[current_id]->pos.j += sample_period * particles[current_id]->vel.j;
+        particles[current_id]->pos.i += sample_period * change_in_velocity.i;
+        particles[current_id]->pos.j += sample_period * change_in_velocity.j;
     }
 }
 

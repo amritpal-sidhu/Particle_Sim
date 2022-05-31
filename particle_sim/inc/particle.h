@@ -13,12 +13,12 @@ typedef struct particle
 {
     unsigned long long int id;
     vector3d_t pos;
-    vector3d_t vel;
+    vector3d_t momentum_integral;
     double mass;
     double charge;
 
 } particle_t;
 
 
-particle_t *particle__new(const unsigned long long int id, const vector3d_t initial_pos, const vector3d_t initial_vel, const double mass, const double charge);
+particle_t *particle__new(const unsigned long long int id, const vector3d_t initial_pos, const vector3d_t initial_momentum, const double mass, const double charge);
 void particle__delete(particle_t *p);

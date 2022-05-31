@@ -56,10 +56,6 @@ int main(void)
     const int initial_window_height = 960;
     
     const vector2d_t circle_center = {0};
-    const double p_radius = 0.1;
-    const double e_radius = 0.05;
-    const color_t p_color = {1.0f, 0.0f, 0.0f};
-    const color_t e_color = {0.0f, 0.0f, 1.0f};
     struct vertex p_vertices[CIRCLE_SEGMENTS];
     struct vertex e_vertices[CIRCLE_SEGMENTS];
     

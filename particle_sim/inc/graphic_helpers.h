@@ -47,6 +47,12 @@ struct draw_variables
 };
 
 
+/* Soley for visually identifying hte particles graphically */
+extern const double p_radius;
+extern const double e_radius;
+extern const color_t p_color;
+extern const color_t e_color;
+
 extern FILE *debug_fp;
 
 

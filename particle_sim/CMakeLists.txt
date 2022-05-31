@@ -5,7 +5,8 @@ set(GENERATE_TEST_RUNNER ${UNITY_DIR}/auto/generate_test_runner.rb)
 
 set(LOCAL_SOURCES particle_sim.c
                   particle.c
-                  mechanic_equations.c)
+                  mechanic_equations.c
+                  graphic_helpers.c)
 list(TRANSFORM LOCAL_SOURCES PREPEND ${CMAKE_CURRENT_LIST_DIR}/src/)
 
 add_compile_options(

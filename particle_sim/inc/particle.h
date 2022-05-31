@@ -19,14 +19,6 @@ typedef struct particle
 
 } particle_t;
 
-typedef struct {
-
-    float r;
-    float g;
-    float b;
-
-} color_t;
-
 
 particle_t *particle__new(const unsigned long long int id, const vector3d_t initial_pos, const vector3d_t initial_vel, const double mass, const double charge);
 void particle__delete(particle_t *p);

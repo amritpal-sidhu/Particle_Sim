@@ -2,10 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-#include "linmath.h"
+#include "graphic_helpers.h"
 
 #include "vector.h"
 
@@ -13,23 +10,11 @@
 #include "mechanic_equations.h"
 
 
-#define PI                  3.14159265358979323846264338327950
 #define CIRCLE_SEGMENTS     32
-
-#define VERTEX_SHADER_FILEPATH      "shaders/vs.vert"
-#define FRAGMENT_SHADER_FILEPATH    "shaders/fs.frag"
-#define DEBUG_OUTPUT_FILEPATH       "debug_output.txt"
 
 /* Playing with the numbers for now ("simulating" Helium in the making... kind of) */
 #define P_COUNT             1
 #define E_COUNT             2
-
-
-struct vertex
-{
-    vector3d_t pos;
-    color_t color;
-};
 
 
 static void pre_exit_calls(void);
@@ -38,18 +23,10 @@ static void error_callback(int error, const char *description);
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
-static size_t get_file_size(FILE *fp);
-static void shader_compile_and_link(GLuint *program);
-
-static void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_size);
-static void vertex_buffer_draw(const GLuint VBO, const float ratio, const vector3d_t pos);
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO);
 
 static void update_positions(void);
 static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int sign);
-
-static void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color);
-static void busy_wait_ms(const float delay_in_ms);
 
 
 /**
@@ -57,18 +34,20 @@ static void busy_wait_ms(const float delay_in_ms);
  *   TODO: Use parameter passing once the code becomes
  *         more stable.
  */
-static GLint vpos_location, vcol_location, mvp_location;
+static struct shader_variables shader_vars;
 
 static particle_t *particles[P_COUNT+E_COUNT];
+
+/* Main parameters that will effect the behavior */
+const double sample_period = 8E-3;
 static const vector3d_t initial_pos[P_COUNT+E_COUNT] = {
     {.i = 0, .j = -0.1, .k = 0},
-    {.i = -0.75, .j = 0.25, .k = 0},
-    {.i = 0.75, .j = 0, .k = 0},
+    {.i = -0.5, .j = 0.25, .k = 0},
+    {.i = 0.5, .j = 0.25, .k = 0},
 };
 
-static double view_scalar = 10E-20; // Determined from experimentation, but not sure it's source
-
-static FILE *debug_fp;
+/* View scalar initial value determined from experimentation, but not sure it's source */
+static struct draw_variables draw_vars = {.num_segments = CIRCLE_SEGMENTS, .view_scalar = 10E-20};
 
 
 /* Entry point */
@@ -125,11 +104,14 @@ int main(void)
     gladLoadGL();
     glfwSwapInterval(1);
     
-    shader_compile_and_link(&program);
+    if (shader_compile_and_link(&program)) {
+        pre_exit_calls();
+        exit(1);
+    }
 
-    mvp_location = glGetUniformLocation(program, "MVP");
-    vpos_location = glGetAttribLocation(program, "vPos");
-    vcol_location = glGetAttribLocation(program, "vCol");
+    shader_vars.mvp_location = glGetUniformLocation(program, "MVP");
+    shader_vars.vpos_location = glGetAttribLocation(program, "vPos");
+    shader_vars.vcol_location = glGetAttribLocation(program, "vCol");
 
     for (size_t i = 0; i < P_COUNT; ++i)
         vertex_buffer_init(&VBO[i], p_vertices, sizeof(p_vertices));
@@ -194,133 +176,31 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     const double upper_bound = 10E-20;
     const double lower_bound = 1E-20;
 
-    view_scalar *= yoffset > 0 ? magnify_scalar : minify_scalar;
+    draw_vars.view_scalar *= yoffset > 0 ? magnify_scalar : minify_scalar;
 
-    if (view_scalar > upper_bound)
-        view_scalar = upper_bound;
-    else if (view_scalar < lower_bound)
-        view_scalar = lower_bound;
+    if (draw_vars.view_scalar > upper_bound)
+        draw_vars.view_scalar = upper_bound;
+    else if (draw_vars.view_scalar < lower_bound)
+        draw_vars.view_scalar = lower_bound;
 
     // fprintf(debug_fp, "DEBUG VIEW MAGNIFICATION: view_scalar value = %E\n", view_scalar);
-}
-
-static size_t get_file_size(FILE *fp)
-{
-    size_t size;
-
-    fseek(fp, 0, SEEK_END);
-    size = (size_t)ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-
-    return size;
-}
-
-static void shader_compile_and_link(GLuint *program)
-{
-    FILE *vs_fp = fopen(VERTEX_SHADER_FILEPATH, "r");
-    FILE *fs_fp = fopen(FRAGMENT_SHADER_FILEPATH, "r");
-    char *vs_text;
-    char *fs_text;
-    size_t rc;
-
-    GLuint vertex_shader, fragment_shader;
-
-
-    if (!vs_fp || !fs_fp) {
-        pre_exit_calls();
-        exit(1);
-    }
-
-    const size_t vs_size = get_file_size(vs_fp);
-    const size_t fs_size = get_file_size(fs_fp);
-
-    vs_text = malloc(sizeof(char)*vs_size);
-    fs_text = malloc(sizeof(char)*fs_size);
-
-    if (!vs_text || !fs_text) {
-        pre_exit_calls();
-        exit(1);
-    }
-
-    rc = fread(vs_text, sizeof(char), vs_size, vs_fp);
-    // fprintf(debug_fp, "VERTEX SHADER READ: read %i bytes\n\n%s\n\n", rc, vs_text);
-    // if (rc != vs_size) {
-    //     fclose(debug_fp);
-    //     exit(1);
-    // }
-    rc = fread(fs_text, sizeof(char), fs_size, fs_fp);
-    // fprintf(debug_fp, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n\n", rc, fs_text);
-    // if (rc != fs_size) {
-    //     fclose(debug_fp);
-    //     exit(1);
-    // }
-
-    fclose(vs_fp);
-    fclose(fs_fp);
-
-    vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, (const GLchar * const*)&vs_text, NULL);
-    glCompileShader(vertex_shader);
- 
-    fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, (const GLchar * const*)&fs_text, NULL);
-    glCompileShader(fragment_shader);
- 
-    *program = glCreateProgram();
-    glAttachShader(*program, vertex_shader);
-    glAttachShader(*program, fragment_shader);
-    glLinkProgram(*program);
-
-    free(vs_text);
-    free(fs_text);
-}
-
-static void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_size)
-{
-    glGenBuffers(1, VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, *VBO);
-    glBufferData(GL_ARRAY_BUFFER, v_size, vertices, GL_STATIC_DRAW);
-}
-
-static void vertex_buffer_draw(const GLuint VBO, const float ratio, const vector3d_t pos)
-{
-    mat4x4 m, p, mvp;
-
-    mat4x4_translate(m, pos.i, pos.j, pos.k);
-    mat4x4_scale(m, m, view_scalar);
-    mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
-    mat4x4_mul(mvp, p, m);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    /**
-     * These attributes need to be reassociated with the currently bound vertex buffer object for the shader
-     * to properly set the variables.
-     */
-    glEnableVertexAttribArray((GLuint)vpos_location);
-    glVertexAttribPointer((GLuint)vpos_location, 3, GL_DOUBLE, GL_FALSE, sizeof(struct vertex), (void*) 0);
-    glEnableVertexAttribArray((GLuint)vcol_location);
-    glVertexAttribPointer((GLuint)vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*) (sizeof(double) * 3));
-
-    glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*)mvp);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_SEGMENTS);
 }
 
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
 {
     while (!glfwWindowShouldClose(window)) {
         
-        float ratio;
         int width, height;
  
         glfwGetFramebufferSize(window, &width, &height);
-        ratio = (float)width / height;
+        draw_vars.ratio = (float)width / height;
 
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
-            vertex_buffer_draw(VBO[i], ratio, particles[i]->pos);
+            vertex_buffer_draw(VBO[i], shader_vars, draw_vars, particles[i]->pos);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -333,7 +213,6 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
 
 static void update_positions(void)
 {
-    const double fake_sample_period = 4E-3;
     static vector3d_t impulse_integral[P_COUNT+E_COUNT];
 
     /* Leave the positively charge particles static for now */
@@ -359,10 +238,10 @@ static void update_positions(void)
         for (size_t other_id = 0; other_id < P_COUNT+E_COUNT; ++other_id)
             F_resultant = vector3d__add(F_resultant, F[other_id]);
 
-        particles[current_id]->vel = velocity_induced_by_force(&impulse_integral[current_id], F_resultant, particles[current_id]->mass, fake_sample_period);
+        particles[current_id]->vel = velocity_induced_by_force(&impulse_integral[current_id], F_resultant, particles[current_id]->mass, sample_period);
 
-        particles[current_id]->pos.i += fake_sample_period * particles[current_id]->vel.i;
-        particles[current_id]->pos.j += fake_sample_period * particles[current_id]->vel.j;
+        particles[current_id]->pos.i += sample_period * particles[current_id]->vel.i;
+        particles[current_id]->pos.j += sample_period * particles[current_id]->vel.j;
     }
 }
 
@@ -373,27 +252,4 @@ static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b,
     if ((F->i > 0 && F_dir.i < 0) || (F->i < 0 && F_dir.i > 0)) F->i *= -1;
     if ((F->j > 0 && F_dir.j < 0) || (F->j < 0 && F_dir.j > 0)) F->j *= -1;
     if ((F->k > 0 && F_dir.k < 0) || (F->k < 0 && F_dir.k > 0)) F->k *= -1;
-}
-
-static void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color)
-{
-    for(int i = 0; i < num_segments; ++i) {
-        double theta = 2.0f * PI * i / (num_segments - 2);
-
-        double x = r * cos(theta);
-        double y = r * sin(theta);
-
-        v[i].pos.i = x + center.i;
-        v[i].pos.j = y + center.j;
-        v[i].color = color;
-    }
-}
-
-static void busy_wait_ms(const float delay_in_ms)
-{
-    const float clocks_per_ms = (float)CLOCKS_PER_SEC / 1000;
-    const float start_tick = clocks_per_ms * clock();
-    const float end_tick = start_tick + (clocks_per_ms * delay_in_ms);
-
-    while (clocks_per_ms * clock() <= end_tick);
 }

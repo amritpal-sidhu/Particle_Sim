@@ -13,7 +13,7 @@ double electric_force(const double q1, const double q2, const double r)
 
 vector3d_t velocity_induced_by_force(vector3d_t *impulse_integral, const vector3d_t F, const double m, const double sample_period)
 {
-    *impulse_integral = vector_3d__add(*impulse_integral, vector_3d__scale(F, sample_period));
+    *impulse_integral = vector3d__add(*impulse_integral, vector3d__scale(F, sample_period));
 
-    return vector_3d__scale(*impulse_integral, 1/m);
+    return vector3d__scale(*impulse_integral, 1/m);
 }

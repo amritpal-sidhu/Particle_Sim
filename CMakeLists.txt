@@ -23,6 +23,10 @@ set(GLAD_PROFILE "core" CACHE STRING "" FORCE)
 set(GLAD_API "gl=4.6" CACHE STRING "" FORCE)
 set(GLAD_REPRODUCIBLE ON CACHE BOOL "" FORCE)
 
+# Options for C-Utilities
+set (SKIP_BINARY_TREES_LIB ON CACHE BOOL "" FORCE)
+set (SKIP_LINKED_LISTS_LIB ON CACHE BOOL "" FORCE)
+
 
 add_subdirectory(Third-Party/glfw)
 target_compile_definitions(glfw PRIVATE GLFW_USE_CONFIG_H)
@@ -33,6 +37,8 @@ add_subdirectory(Third-Party/glad)
 add_subdirectory(Third-Party/Unity)
 target_compile_definitions(unity PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_include_directories(unity PRIVATE Third-Party )
+
+add_subdirectory(C-Utilities)
 
 add_subdirectory(particle_sim)
 target_include_directories(particle_sim PRIVATE

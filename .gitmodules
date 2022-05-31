@@ -7,3 +7,6 @@
 [submodule "Third-Party/glad"]
 	path = Third-Party/glad
 	url = https://github.com/Dav1dde/glad.git
+[submodule "C-Utilities"]
+	path = C-Utilities
+	url = https://gitlab.com/asidhu77/C-Utilities.git

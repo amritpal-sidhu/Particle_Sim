@@ -8,6 +8,7 @@
 #include "linmath.h"
 
 #include "vector.h"
+
 #include "particle.h"
 #include "mechanic_equations.h"
 
@@ -19,6 +20,7 @@
 #define FRAGMENT_SHADER_FILEPATH    "shaders/fs.frag"
 #define DEBUG_OUTPUT_FILEPATH       "debug_output.txt"
 
+/* Playing with the numbers for now ("simulating" Helium in the making... kind of) */
 #define P_COUNT             1
 #define E_COUNT             2
 
@@ -345,8 +347,8 @@ static void update_positions(void)
 
             if (particles[current_id]->id == other_id) continue;
 
-            /* Playing with the numbers for now ("simulating" Helium in the making... kind of) */
-            const double charge_of_other = particles[other_id]->charge > 0 ? 2*particles[other_id]->charge : particles[other_id]->charge;
+            /* Assuming positively charged "object" is a nucleus */
+            const double charge_of_other = particles[other_id]->charge > 0 ? P_COUNT*particles[other_id]->charge : particles[other_id]->charge;
 
             const double F_mag = electric_force(particles[current_id]->charge, charge_of_other, vector3d__distance(particles[other_id]->pos, particles[current_id]->pos));
             const double theta = vector3d__theta(particles[other_id]->pos, particles[current_id]->pos);

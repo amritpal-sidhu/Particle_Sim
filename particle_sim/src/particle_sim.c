@@ -83,19 +83,13 @@ int main(void)
 
     /* particle struct is a WIP */
     p[0].id = 0, p[0].charge = PROTON_CHARGE,   p[0].mass = PROTON_MASS,
-    p[0].pos.i = 0,
-    p[0].pos.j = -0.1,
-    p[0].pos.k = 0;
+    p[0].pos = (vector_3d_t){.i = 0, .j = -0.1, .k = 0};
     
     e[0].id = 1, e[0].charge = ELECTRON_CHARGE, e[0].mass = ELECTRON_MASS,
-    e[0].pos.i = -0.75,
-    e[0].pos.j = 0.25,
-    e[0].pos.k = 0;
+    e[0].pos = (vector_3d_t){.i = -0.75, .j = 0.25, .k = 0};
 
     e[1].id = 2, e[1].charge = ELECTRON_CHARGE, e[1].mass = ELECTRON_MASS,
-    e[1].pos.i = 0.75,
-    e[1].pos.j = 0,
-    e[1].pos.k = 0;
+    e[1].pos = (vector_3d_t){.i = 0.75, .j = 0, .k = 0};
 
     create_circle_vertex_array(p_vertices, circle_center, p_radius, CIRCLE_SEGMENTS, p_color);
     create_circle_vertex_array(e_vertices, circle_center, e_radius, CIRCLE_SEGMENTS, e_color);
@@ -156,6 +150,13 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
     case GLFW_KEY_ESCAPE:
         if (action == GLFW_PRESS)
             glfwSetWindowShouldClose(window, GLFW_TRUE);
+        break;
+
+    // reset particle locations... but not MOMENTUM!
+    case GLFW_KEY_R:
+            p[0].pos = (vector_3d_t){.i = 0, .j = -0.1, .k = 0};
+            e[0].pos = (vector_3d_t){.i = -0.75, .j = 0.25, .k = 0};
+            e[1].pos = (vector_3d_t){.i = 0.75, .j = 0, .k = 0};
         break;
 
     default:

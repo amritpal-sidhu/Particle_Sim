@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <math.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -16,6 +15,10 @@
 #define CIRCLE_SEGMENTS     32
 #define P_COUNT             1
 #define E_COUNT             2
+
+#define VERTEX_SHADER_FILEPATH      "shaders/vs.vert"
+#define FRAGMENT_SHADER_FILEPATH    "shaders/fs.frag"
+#define DEBUG_OUTPUT_FILEPATH       "debug_output.txt"
 
 
 struct vertex
@@ -47,21 +50,18 @@ static void busy_wait_ms(const float delay_in_ms);
  *   TODO: Use parameter passing once the code becomes
  *         more stable.
  */
-static const char vertex_shader_filepath[] = "shaders/vs.vert";
-static const char fragment_shader_filepath[] = "shaders/fs.frag";
-static const char debug_output_filepath[] = "debug_output.txt";
-static FILE *debug_fp;
-
 static GLint vpos_location, vcol_location, mvp_location;
-static mat4x4 v;
+static double view_scalar = 10E-20; // Determined from experimentation, but not sure it's source
 static particle_t p[P_COUNT], e[E_COUNT];
+
+static FILE *debug_fp;
 
 
 /* Entry point */
 int main(void)
 {
-    const int initial_window_width = 640;
-    const int initial_window_height = 480;
+    const int initial_window_width = 1280;
+    const int initial_window_height = 960;
     
     const vector_2d_t circle_center = {0};
     const double p_radius = 0.1;
@@ -73,7 +73,7 @@ int main(void)
     GLuint VBO[P_COUNT+E_COUNT], program;
 
     printf("Attempting to open debug file\n");
-    debug_fp = fopen(debug_output_filepath, "w");
+    debug_fp = fopen(DEBUG_OUTPUT_FILEPATH, "w");
     if (!debug_fp) {
         printf("failed to open debug file\n");
         return 1;
@@ -82,9 +82,20 @@ int main(void)
     fprintf(debug_fp, "*** DEBUG OUTPUT LOG ***\n\n");
 
     /* particle struct is a WIP */
-    p[0].id = 0, p[0].charge = PROTON_CHARGE,   p[0].mass = PROTON_MASS,   p[0].pos.i = 0,      p[0].pos.j = -0.25, p[0].pos.k = 0;
-    e[0].id = 1, e[0].charge = ELECTRON_CHARGE, e[0].mass = ELECTRON_MASS, e[0].pos.i = -0.25,  e[0].pos.j = 0,     e[0].pos.k = 0;
-    e[1].id = 2, e[1].charge = ELECTRON_CHARGE, e[1].mass = ELECTRON_MASS, e[1].pos.i = 0.25,   e[1].pos.j = 0,     e[1].pos.k = 0;
+    p[0].id = 0, p[0].charge = PROTON_CHARGE,   p[0].mass = PROTON_MASS,
+    p[0].pos.i = 0,
+    p[0].pos.j = -0.1,
+    p[0].pos.k = 0;
+    
+    e[0].id = 1, e[0].charge = ELECTRON_CHARGE, e[0].mass = ELECTRON_MASS,
+    e[0].pos.i = -0.75,
+    e[0].pos.j = 0.25,
+    e[0].pos.k = 0;
+
+    e[1].id = 2, e[1].charge = ELECTRON_CHARGE, e[1].mass = ELECTRON_MASS,
+    e[1].pos.i = 0.75,
+    e[1].pos.j = 0,
+    e[1].pos.k = 0;
 
     create_circle_vertex_array(p_vertices, circle_center, p_radius, CIRCLE_SEGMENTS, p_color);
     create_circle_vertex_array(e_vertices, circle_center, e_radius, CIRCLE_SEGMENTS, e_color);
@@ -154,19 +165,23 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 
 static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-    static float scalar = 1.0f;
-    const float scalar_increment = 0.1f;
+    const double magnify_scalar = 1.25;
+    const double minify_scalar = 0.75;
+    /** 
+     * I'm not sure why these values get used... 
+     * might be the size of things in my coordinate system
+     */
+    const double upper_bound = 10E-20;
+    const double lower_bound = 1E-20;
 
-    if (yoffset > 0)
-        scalar += scalar_increment;
-    else if (yoffset < 0 && scalar > 0)
-        scalar -= scalar_increment;
-    else
-        scalar = 0.1f;
+    view_scalar *= yoffset > 0 ? magnify_scalar : minify_scalar;
 
-    fprintf(debug_fp, "DEBUG VIEW MAGNIFICATION: scalar value = %.2f\n", scalar);
+    if (view_scalar > upper_bound)
+        view_scalar = upper_bound;
+    else if (view_scalar < lower_bound)
+        view_scalar = lower_bound;
 
-    // mat4x4_scale(v, v, yoffset);
+    // fprintf(debug_fp, "DEBUG VIEW MAGNIFICATION: view_scalar value = %E\n", view_scalar);
 }
 
 static size_t get_file_size(FILE *fp)
@@ -182,8 +197,8 @@ static size_t get_file_size(FILE *fp)
 
 static void shader_compile_and_link(GLuint *program)
 {
-    FILE *vs_fp = fopen(vertex_shader_filepath, "r");
-    FILE *fs_fp = fopen(fragment_shader_filepath, "r");
+    FILE *vs_fp = fopen(VERTEX_SHADER_FILEPATH, "r");
+    FILE *fs_fp = fopen(FRAGMENT_SHADER_FILEPATH, "r");
     char *vs_text;
     char *fs_text;
     size_t rc;
@@ -251,13 +266,12 @@ static void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const
 
 static void vertex_buffer_draw(const GLuint VBO, const float ratio, const vector_3d_t pos)
 {
-    mat4x4 m, p, vp, mvp;
+    mat4x4 m, p, mvp;
 
     mat4x4_translate(m, pos.i, pos.j, pos.k);
-    mat4x4_identity(v);
+    mat4x4_scale(m, m, view_scalar);
     mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
     mat4x4_mul(mvp, p, m);
-    // mat4x4_mul(mvp, vp, m);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     /**

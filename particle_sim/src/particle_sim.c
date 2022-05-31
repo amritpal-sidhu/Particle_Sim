@@ -82,7 +82,7 @@ int main(void)
     fprintf(debug_fp, "*** DEBUG OUTPUT LOG ***\n\n");
 
     /* particle struct is a WIP */
-    p[0].id = 0, p[0].charge = PROTON_CHARGE,   p[0].mass = PROTON_MASS,
+    p[0].id = 0, p[0].charge = PROTON_CHARGE, p[0].mass = PROTON_MASS,
     p[0].pos = (vector_3d_t){.i = 0, .j = -0.1, .k = 0};
     
     e[0].id = 1, e[0].charge = ELECTRON_CHARGE, e[0].mass = ELECTRON_MASS,
@@ -322,7 +322,7 @@ static void update_positions(void)
     static vector_3d_t e0_impulse_integral;
     static vector_3d_t e1_impulse_integral;
 
-    /* Playing with the numbers for now */
+    /* Playing with the numbers for now ("simulating" Helium in the making... kind of) */
     const double e0_p_F_mag = electric_force(2*p[0].charge, e[0].charge, vector_3d__distance(e[0].pos, p[0].pos));
     const double e1_p_F_mag = electric_force(2*p[0].charge, e[1].charge, vector_3d__distance(e[1].pos, p[0].pos));
     const double e0_e1_F_mag = electric_force(e[0].charge, e[1].charge, vector_3d__distance(e[0].pos, e[1].pos));
@@ -345,8 +345,8 @@ static void update_positions(void)
     const vector_3d_t e0_resultant_F = vector_3d__add(e0_p_F, e0_e1_F);
     const vector_3d_t e1_resultant_F = vector_3d__add(e1_p_F, e1_e0_F);
 
-    e[0].vel = velocity_induced_by_force(&e0_impulse_integral, e0_resultant_F, ELECTRON_MASS, fake_sample_period);
-    e[1].vel = velocity_induced_by_force(&e1_impulse_integral, e1_resultant_F, ELECTRON_MASS, fake_sample_period);
+    e[0].vel = velocity_induced_by_force(&e0_impulse_integral, e0_resultant_F, e[0].mass, fake_sample_period);
+    e[1].vel = velocity_induced_by_force(&e1_impulse_integral, e1_resultant_F, e[1].mass, fake_sample_period);
 
     e[0].pos.i += e[0].vel.i*fake_sample_period;
     e[0].pos.j += e[0].vel.j*fake_sample_period;

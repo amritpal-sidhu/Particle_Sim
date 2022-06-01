@@ -38,12 +38,18 @@ static struct shader_variables shader_vars;
 static particle_t *particles[P_COUNT+E_COUNT];
 
 /* Main parameters that will effect the behavior */
-const double sample_period = 8E-3;
+static const double sample_period = 8E-3;
 static const vector3d_t initial_pos[P_COUNT+E_COUNT] = {
     {.i = 0, .j = -0.1, .k = 0},
     {.i = -0.5, .j = 0.25, .k = 0},
     {.i = 0.5, .j = 0.25, .k = 0},
 };
+static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
+    {.i = 0, .j = 0, .k = 0},
+    {.i = 0, .j = 0, .k = 0},
+    {.i = 0, .j = 0, .k = 0},
+};
+
 
 /* View scalar initial value determined from experimentation, but not sure it's source */
 static struct draw_variables draw_vars = {.num_segments = CIRCLE_SEGMENTS, .view_scalar = 10E-20};
@@ -78,9 +84,9 @@ int main(void)
      * Initialization of specific initial coordinates
      */
     for (size_t i = 0; i < P_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], (vector3d_t){0}, PROTON_MASS, PROTON_CHARGE);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], PROTON_MASS, PROTON_CHARGE);
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], (vector3d_t){0}, ELECTRON_MASS, ELECTRON_CHARGE);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {
@@ -210,8 +216,7 @@ static void update_positions(void)
 {
     static vector3d_t impulse_integral[P_COUNT+E_COUNT];
 
-    /* Leave the positively charge particles static for now */
-    for (size_t current_id = P_COUNT; current_id < P_COUNT+E_COUNT; ++current_id) {
+    for (size_t current_id = 0; current_id < P_COUNT+E_COUNT; ++current_id) {
 
         vector3d_t F[P_COUNT+E_COUNT-1];
         vector3d_t F_resultant = {0};
@@ -221,8 +226,8 @@ static void update_positions(void)
 
             if (particles[current_id]->id == other_id) continue;
 
-            /* Assuming positively charged "object" is a nucleus */
-            const double charge_of_other = particles[other_id]->charge > 0 ? P_COUNT*particles[other_id]->charge : particles[other_id]->charge;
+            /* Assuming positively charged "object" is a nucleus and scales positive charge with the electron count */
+            const double charge_of_other = particles[other_id]->charge > 0 ? E_COUNT*particles[other_id]->charge : particles[other_id]->charge;
 
             const double F_mag = electric_force(particles[current_id]->charge, charge_of_other, vector3d__distance(particles[other_id]->pos, particles[current_id]->pos));
             const double theta = vector3d__theta(particles[other_id]->pos, particles[current_id]->pos);
@@ -230,7 +235,7 @@ static void update_positions(void)
             correct_signs(&F[other_id], particles[current_id]->pos, particles[other_id]->pos, particles[other_id]->charge > 0 ? 1 : -1);
         }
 
-        for (size_t other_id = 0; other_id < P_COUNT+E_COUNT; ++other_id)
+        for (size_t other_id = 0; other_id < P_COUNT+E_COUNT-1; ++other_id)
             F_resultant = vector3d__add(F_resultant, F[other_id]);
 
         update_momentum(&particles[current_id]->momentum_integral, F_resultant, sample_period);

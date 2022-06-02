@@ -248,8 +248,7 @@ static void update_positions(void)
             #endif
             const double theta = vector3d__theta(particles[this]->pos, particles[that]->pos);
 
-            const int attract = (particles[this]->charge > 0 && particles[that]->charge < 0) ||
-                                (particles[this]->charge < 0 && particles[that]->charge > 0);
+            const int attract = is_float_negative(particles[this]->charge) != is_float_negative(particles[that]->charge);
 
             Fe[that] = (vector3d_t){.i = Fe_mag*cos(theta), .j = Fe_mag*sin(theta)};
             correct_signs(&Fe[that], particles[this]->pos, particles[that]->pos, attract);

@@ -124,6 +124,15 @@ void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const
     }
 }
 
+int is_float_negative(const double val)
+{
+    const unsigned long long int shift = 8*sizeof(double) - 1;
+    const unsigned long long int one = 1;
+    const unsigned long long int int_val = val;
+
+    return (int_val & (one << shift)) >> shift;
+}
+
 void busy_wait_ms(const float delay_in_ms)
 {
     const float clocks_per_ms = (float)CLOCKS_PER_SEC / 1000;

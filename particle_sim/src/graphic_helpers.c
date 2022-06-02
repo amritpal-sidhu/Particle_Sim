@@ -13,8 +13,6 @@ static size_t get_file_size(FILE *fp);
 /* Global variables */
 FILE *debug_fp;
 
-const double p_radius = 0.1;
-const double e_radius = 0.05;
 const color_t p_color = (color_t){.r = 1.0f, .g = 0.0f, .b = 0.0f};
 const color_t e_color = (color_t){.r = 0.0f, .g = 0.0f, .b = 1.0f};;
 

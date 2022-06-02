@@ -9,11 +9,12 @@
 #include "particle.h"
 #include "mechanic_equations.h"
 
+#define __USE_GRAVITY
+
 
 #define CIRCLE_SEGMENTS     32
 
-/* Playing with the numbers for now ("simulating" Helium in the making... kind of) */
-#define P_COUNT             1
+#define P_COUNT             1   // Temporary solution to "simulate" a nucleus
 #define E_COUNT             2
 
 
@@ -30,7 +31,7 @@ static void update_positions(void);
 /**
  * Current solution to acos output range of [0, PI]
  */
-static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int sign);
+static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int attract);
 
 
 static struct shader_variables shader_vars;
@@ -40,14 +41,22 @@ static particle_t *particles[P_COUNT+E_COUNT];
 /* Main parameters that will effect the behavior */
 static const double sample_period = 8E-3;
 static const vector3d_t initial_pos[P_COUNT+E_COUNT] = {
+    /* Positively charged */
     {.i = 0, .j = -0.1, .k = 0},
-    {.i = -0.5, .j = 0.25, .k = 0},
-    {.i = 0.5, .j = 0.25, .k = 0},
+    /* Negatively charged */
+    {.i = -0.25, .j = 0, .k = 0},
+    {.i = 0.55, .j = 0.25, .k = 0},
+    // {.i = 0.5, .j = -0.5, .k = 0},
+    // {.i = -0.5, .j = -0.5, .k = 0},
 };
 static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
+    /* Positively charged */
+    {.i = 0, .j = 0, .k = 0},
+    /* Negatively charged */
     {.i = 0, .j = 0, .k = 0},
     {.i = 0, .j = 0, .k = 0},
-    {.i = 0, .j = 0, .k = 0},
+    // {.i = 0, .j = 0, .k = 0},
+    // {.i = 0, .j = 0, .k = 0},
 };
 
 
@@ -82,9 +91,14 @@ int main(void)
 
     /**
      * Initialization of specific initial coordinates
+     * 
+     * Currently initializing the "nucleus" as a stable (equal neutrons to protons to electrons)
+     * 
+     * In reality the nucleus is likely in motion along with spin, which would generate magnetic fields,
+     * further complicating this simulation.  Something to work on in the future.
      */
     for (size_t i = 0; i < P_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], PROTON_MASS, PROTON_CHARGE);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE);
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
         particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE);
 
@@ -214,41 +228,60 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
 
 static void update_positions(void)
 {
-    static vector3d_t impulse_integral[P_COUNT+E_COUNT];
+    for (size_t this = 0; this < P_COUNT+E_COUNT; ++this) {
 
-    for (size_t current_id = 0; current_id < P_COUNT+E_COUNT; ++current_id) {
-
-        vector3d_t F[P_COUNT+E_COUNT-1];
+        vector3d_t Fe[P_COUNT+E_COUNT-1];
+        #ifdef __USE_GRAVITY
+        vector3d_t Fg[P_COUNT+E_COUNT-1];
+        #endif
         vector3d_t F_resultant = {0};
 
         /* Try to find a time improvement to compute all forces acting on current particle */
-        for (size_t other_id = 0; other_id < P_COUNT+E_COUNT; ++other_id) {
+        for (size_t that = 0; that < P_COUNT+E_COUNT; ++that) {
 
-            if (particles[current_id]->id == other_id) continue;
+            if (particles[this]->id == particles[that]->id) continue;
 
-            /* Assuming positively charged "object" is a nucleus and scales positive charge with the electron count */
-            const double charge_of_other = particles[other_id]->charge > 0 ? E_COUNT*particles[other_id]->charge : particles[other_id]->charge;
+            const double r = vector3d__distance(particles[this]->pos, particles[that]->pos);
+            const double Fe_mag = electric_force(particles[this]->charge, particles[that]->charge, r);
+            #ifdef __USE_GRAVITY
+            const double Fg_mag = gravitational_force(particles[this]->mass, particles[that]->mass, r);
+            #endif
+            const double theta = vector3d__theta(particles[this]->pos, particles[that]->pos);
 
-            const double F_mag = electric_force(particles[current_id]->charge, charge_of_other, vector3d__distance(particles[other_id]->pos, particles[current_id]->pos));
-            const double theta = vector3d__theta(particles[other_id]->pos, particles[current_id]->pos);
-            F[other_id] = (vector3d_t){.i = F_mag*cos(theta), .j = F_mag*sin(theta)};
-            correct_signs(&F[other_id], particles[current_id]->pos, particles[other_id]->pos, particles[other_id]->charge > 0 ? 1 : -1);
+            const int attract = (particles[this]->charge > 0 && particles[that]->charge < 0) ||
+                                (particles[this]->charge < 0 && particles[that]->charge > 0);
+
+            Fe[that] = (vector3d_t){.i = Fe_mag*cos(theta), .j = Fe_mag*sin(theta)};
+            correct_signs(&Fe[that], particles[this]->pos, particles[that]->pos, attract);
+
+            #ifdef __USE_GRAVITY
+            Fg[that] = (vector3d_t){.i = Fg_mag*cos(theta), .j = Fg_mag*sin(theta)};
+            correct_signs(&Fe[that], particles[this]->pos, particles[that]->pos, 1);
+            #endif
         }
 
-        for (size_t other_id = 0; other_id < P_COUNT+E_COUNT-1; ++other_id)
-            F_resultant = vector3d__add(F_resultant, F[other_id]);
+        for (size_t that = 0; that < P_COUNT+E_COUNT-1; ++that) {
+            F_resultant = vector3d__add(F_resultant, Fe[that]);
+            #ifdef __USE_GRAVITY
+            F_resultant = vector3d__add(F_resultant, Fg[that]);
+            #endif
+        }
 
-        update_momentum(&particles[current_id]->momentum_integral, F_resultant, sample_period);
-        const vector3d_t change_in_velocity = vector3d__scale(particles[current_id]->momentum_integral, 1 / particles[current_id]->mass);
+        update_momentum(&particles[this]->momentum_integral, F_resultant, sample_period);
+        const vector3d_t change_in_velocity = vector3d__scale(particles[this]->momentum_integral, 1 / particles[this]->mass);
 
-        particles[current_id]->pos.i += sample_period * change_in_velocity.i;
-        particles[current_id]->pos.j += sample_period * change_in_velocity.j;
+        particles[this]->pos.i += sample_period * change_in_velocity.i;
+        particles[this]->pos.j += sample_period * change_in_velocity.j;
+
+        fprintf(debug_fp, "UPDATE MOMENTUM: particle %i now has momentum %E, at position <%.2f, %.2f, %.2f>\n", particles[this]->id, particles[this]->momentum_integral, particles[this]->pos.i, particles[this]->pos.j, particles[this]->pos.k);
     }
+
+     fprintf(debug_fp, "\n");
 }
 
-static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int sign)
+static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int attract)
 {
-    const vector3d_t F_dir = sign == 1 ? vector3d__sub(b, a) : vector3d__sub(a,b);
+    const vector3d_t F_dir = attract ? vector3d__sub(b, a) : vector3d__sub(a, b);
 
     if ((F->i > 0 && F_dir.i < 0) || (F->i < 0 && F_dir.i > 0)) F->i *= -1;
     if ((F->j > 0 && F_dir.j < 0) || (F->j < 0 && F_dir.j > 0)) F->j *= -1;

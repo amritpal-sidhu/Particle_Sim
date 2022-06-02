@@ -47,8 +47,6 @@ struct draw_variables
 };
 
 
-extern FILE *debug_fp;
-
 /* Soley for visually identifying the particles graphically */
 extern const color_t p_color;
 extern const color_t e_color;
@@ -60,6 +58,3 @@ void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_
 void vertex_buffer_draw(const GLuint VBO, const struct shader_variables shader_vars, const struct draw_variables draw_vars, const vector3d_t pos);
 
 void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color);
-
-int is_float_negative(const double val);
-void busy_wait_ms(const float delay_in_ms);

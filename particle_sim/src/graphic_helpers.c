@@ -1,17 +1,13 @@
 #include "graphic_helpers.h"
 
 #include <stdlib.h>
-#include <time.h>
 
 #include "particle.h"
-
-
-/* Private function declarations */
-static size_t get_file_size(FILE *fp);
+#include "logging.h"
 
 
 /* Global variables */
-FILE *debug_fp;
+extern log_t *log_handle;
 
 const color_t p_color = (color_t){.r = 1.0f, .g = 0.0f, .b = 0.0f};
 const color_t e_color = (color_t){.r = 0.0f, .g = 0.0f, .b = 1.0f};;
@@ -44,17 +40,15 @@ int shader_compile_and_link(GLuint *program)
     }
 
     rc = fread(vs_text, sizeof(char), vs_size, vs_fp);
-    // fprintf(debug_fp, "VERTEX SHADER READ: read %i bytes\n\n%s\n\n", rc, vs_text);
-    // if (rc != vs_size) {
-    //     fclose(debug_fp);
-    //     exit(1);
-    // }
+    if (rc != vs_size) {
+        logging__write(log_handle, WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n\n", rc, vs_text);
+        return 1;
+    }
     rc = fread(fs_text, sizeof(char), fs_size, fs_fp);
-    // fprintf(debug_fp, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n\n", rc, fs_text);
-    // if (rc != fs_size) {
-    //     fclose(debug_fp);
-    //     exit(1);
-    // }
+    if (rc != fs_size) {
+        logging__write(log_handle, WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n\n", rc, fs_text);
+        return 1;
+    }
 
     fclose(vs_fp);
     fclose(fs_fp);
@@ -120,35 +114,4 @@ void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const
         v[i].pos.j = y + center.j;
         v[i].color = color;
     }
-}
-
-int is_float_negative(const double val)
-{
-    const unsigned long long int shift = 8*sizeof(double) - 1;
-    const unsigned long long int one = 1;
-    const unsigned long long int int_val = val;
-
-    return (int_val & (one << shift)) >> shift;
-}
-
-void busy_wait_ms(const float delay_in_ms)
-{
-    const float clocks_per_ms = (float)CLOCKS_PER_SEC / 1000;
-    const float start_tick = clocks_per_ms * clock();
-    const float end_tick = start_tick + (clocks_per_ms * delay_in_ms);
-
-    while (clocks_per_ms * clock() <= end_tick);
-}
-
-
-/* Private function definitions */
-static size_t get_file_size(FILE *fp)
-{
-    size_t size;
-
-    fseek(fp, 0, SEEK_END);
-    size = (size_t)ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-
-    return size;
 }

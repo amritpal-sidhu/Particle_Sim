@@ -2,6 +2,7 @@
 
 #include "vector.h"
 
+
 #define PROTON_CHARGE       1.602E-19  // Coulombs
 #define ELECTRON_CHARGE     -1.602E-19
 

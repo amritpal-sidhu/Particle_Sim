@@ -7,9 +7,8 @@
 #include "vector.h"
 
 #include "particle.h"
-#include "mechanic_equations.h"
-
-#define __USE_GRAVITY
+#include "mechanics.h"
+#include "logging.h"
 
 
 #define CIRCLE_SEGMENTS     32
@@ -25,14 +24,17 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO);
+static void busy_wait_ms(const float delay_in_ms);
 
-static void update_positions(void);
 
 /**
  * Current solution to acos output range of [0, PI]
  */
 static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int attract);
 
+
+/* Global variables */
+log_t *log_handle;
 
 static struct shader_variables shader_vars;
 
@@ -77,14 +79,10 @@ int main(void)
     GLuint VBO[P_COUNT+E_COUNT], program;
 
 
-    printf("Attempting to open debug file\n");
-    debug_fp = fopen(DEBUG_OUTPUT_FILEPATH, "w");
-    if (!debug_fp) {
-        printf("failed to open debug file\n");
+    if (!(log_handle=logging__open(DEBUG_OUTPUT_FILEPATH, "w")))
         return 1;
-    }
 
-    fprintf(debug_fp, "*** DEBUG OUTPUT LOG ***\n\n");
+    logging__write(log_handle, STATUS, "Log file opened.");
 
     create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADI, CIRCLE_SEGMENTS, p_color);
     create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADI/8, CIRCLE_SEGMENTS, e_color);
@@ -136,7 +134,7 @@ int main(void)
  
     render_loop(window, program, VBO);
 
-    fprintf(debug_fp, "Program terminated correctly.\n");
+    logging__write(log_handle, STATUS, "Program terminated correctly.\n");
 
     glfwDestroyWindow(window);
     pre_exit_calls();
@@ -149,7 +147,8 @@ int main(void)
 static void pre_exit_calls(void)
 {
     glfwTerminate();
-    fclose(debug_fp);
+    logging__close(log_handle);
+    logging__delete(log_handle);
 
     for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
         particle__delete(particles[i]);
@@ -157,13 +156,13 @@ static void pre_exit_calls(void)
 
 static void error_callback(int error, const char *description)
 {
-    fprintf(debug_fp, "Error: %s\n", description);
+    logging__write(log_handle, ERROR, "Error: %s\n", description);
 }
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    switch (key)
-    {
+    switch (key) {
+
     case GLFW_KEY_ESCAPE:
         if (action == GLFW_PRESS)
             glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -220,69 +219,17 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        update_positions();
+        update_positions(particles, P_COUNT+E_COUNT, sample_period);
 
         busy_wait_ms(10);
     }
 }
 
-static void update_positions(void)
+static void busy_wait_ms(const float delay_in_ms)
 {
-    for (size_t this = 0; this < P_COUNT+E_COUNT; ++this) {
+    const float clocks_per_ms = (float)CLOCKS_PER_SEC / 1000;
+    const float start_tick = clocks_per_ms * clock();
+    const float end_tick = start_tick + (clocks_per_ms * delay_in_ms);
 
-        vector3d_t Fe[P_COUNT+E_COUNT-1];
-        #ifdef __USE_GRAVITY
-        vector3d_t Fg[P_COUNT+E_COUNT-1];
-        #endif
-        vector3d_t F_resultant = {0};
-
-        /* Try to find a time improvement to compute all forces acting on current particle */
-        for (size_t that = 0; that < P_COUNT+E_COUNT; ++that) {
-
-            if (particles[this]->id == particles[that]->id) continue;
-
-            const double r = vector3d__distance(particles[this]->pos, particles[that]->pos);
-            const double Fe_mag = electric_force(particles[this]->charge, particles[that]->charge, r);
-            #ifdef __USE_GRAVITY
-            const double Fg_mag = gravitational_force(particles[this]->mass, particles[that]->mass, r);
-            #endif
-            const double theta = vector3d__theta(particles[this]->pos, particles[that]->pos);
-
-            const int attract = is_float_negative(particles[this]->charge) != is_float_negative(particles[that]->charge);
-
-            Fe[that] = (vector3d_t){.i = Fe_mag*cos(theta), .j = Fe_mag*sin(theta)};
-            correct_signs(&Fe[that], particles[this]->pos, particles[that]->pos, attract);
-
-            #ifdef __USE_GRAVITY
-            Fg[that] = (vector3d_t){.i = Fg_mag*cos(theta), .j = Fg_mag*sin(theta)};
-            correct_signs(&Fe[that], particles[this]->pos, particles[that]->pos, 1);
-            #endif
-        }
-
-        for (size_t that = 0; that < P_COUNT+E_COUNT-1; ++that) {
-            F_resultant = vector3d__add(F_resultant, Fe[that]);
-            #ifdef __USE_GRAVITY
-            F_resultant = vector3d__add(F_resultant, Fg[that]);
-            #endif
-        }
-
-        update_momentum(&particles[this]->momentum_integral, F_resultant, sample_period);
-        const vector3d_t change_in_velocity = vector3d__scale(particles[this]->momentum_integral, 1 / particles[this]->mass);
-
-        particles[this]->pos.i += sample_period * change_in_velocity.i;
-        particles[this]->pos.j += sample_period * change_in_velocity.j;
-
-        fprintf(debug_fp, "UPDATE MOMENTUM: particle %i now has momentum %E, at position <%.2f, %.2f, %.2f>\n", particles[this]->id, particles[this]->momentum_integral, particles[this]->pos.i, particles[this]->pos.j, particles[this]->pos.k);
-    }
-
-     fprintf(debug_fp, "\n");
-}
-
-static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int attract)
-{
-    const vector3d_t F_dir = attract ? vector3d__sub(b, a) : vector3d__sub(a, b);
-
-    if ((F->i > 0 && F_dir.i < 0) || (F->i < 0 && F_dir.i > 0)) F->i *= -1;
-    if ((F->j > 0 && F_dir.j < 0) || (F->j < 0 && F_dir.j > 0)) F->j *= -1;
-    if ((F->k > 0 && F_dir.k < 0) || (F->k < 0 && F_dir.k > 0)) F->k *= -1;
+    while (clocks_per_ms * clock() <= end_tick);
 }

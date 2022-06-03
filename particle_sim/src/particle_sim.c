@@ -8,7 +8,7 @@
 
 #include "particle.h"
 #include "mechanics.h"
-#include "logging.h"
+#include "log.h"
 
 
 #define CIRCLE_SEGMENTS     32
@@ -79,10 +79,10 @@ int main(void)
     GLuint VBO[P_COUNT+E_COUNT], program;
 
 
-    if (!(log_handle=logging__open(DEBUG_OUTPUT_FILEPATH, "w")))
+    if (!(log_handle=log__open(DEBUG_OUTPUT_FILEPATH, "w")))
         return 1;
 
-    logging__write(log_handle, STATUS, "Log file opened.");
+    log__write(log_handle, STATUS, "Log file opened.");
 
     create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADI, CIRCLE_SEGMENTS, p_color);
     create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADI/8, CIRCLE_SEGMENTS, e_color);
@@ -134,7 +134,7 @@ int main(void)
  
     render_loop(window, program, VBO);
 
-    logging__write(log_handle, STATUS, "Program terminated correctly.\n");
+    log__write(log_handle, STATUS, "Program terminated correctly.\n");
 
     glfwDestroyWindow(window);
     pre_exit_calls();
@@ -147,8 +147,8 @@ int main(void)
 static void pre_exit_calls(void)
 {
     glfwTerminate();
-    logging__close(log_handle);
-    logging__delete(log_handle);
+    log__close(log_handle);
+    log__delete(log_handle);
 
     for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
         particle__delete(particles[i]);
@@ -156,7 +156,7 @@ static void pre_exit_calls(void)
 
 static void error_callback(int error, const char *description)
 {
-    logging__write(log_handle, ERROR, "Error: %s\n", description);
+    log__write(log_handle, ERROR, "Error: %s\n", description);
 }
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)

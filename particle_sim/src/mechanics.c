@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "logging.h"
+#include "log.h"
 
 
 #define __USE_GRAVITY
@@ -90,11 +90,11 @@ void update_positions(particle_t **particles, const size_t particle_count, const
         particles[this]->pos.i += sample_period * change_in_velocity.i;
         particles[this]->pos.j += sample_period * change_in_velocity.j;
 
-        logging__write(log_handle, STATUS, "UPDATE MOMENTUM: particle %i, with mass %E and charge %E, now has momentum %E, at position <%.2f, %.2f, %.2f>",
+        log__write(log_handle, STATUS, "UPDATE MOMENTUM: particle %i, with mass %E and charge %E, now has momentum %E, at position <%.2f, %.2f, %.2f>",
         particles[this]->id, particles[this]->mass, particles[this]->charge, particles[this]->momentum_integral, particles[this]->pos.i, particles[this]->pos.j, particles[this]->pos.k);
     }
 
-     logging__write(log_handle, NONE, "");
+     log__write(log_handle, NONE, "");
 }
 
 /* Private function definitions */

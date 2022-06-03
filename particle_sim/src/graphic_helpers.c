@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "particle.h"
-#include "logging.h"
+#include "log.h"
 
 
 /* Global variables */
@@ -41,12 +41,12 @@ int shader_compile_and_link(GLuint *program)
 
     rc = fread(vs_text, sizeof(char), vs_size, vs_fp);
     if (rc != vs_size) {
-        logging__write(log_handle, WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n\n", rc, vs_text);
+        log__write(log_handle, WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n\n", rc, vs_text);
         return 1;
     }
     rc = fread(fs_text, sizeof(char), fs_size, fs_fp);
     if (rc != fs_size) {
-        logging__write(log_handle, WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n\n", rc, fs_text);
+        log__write(log_handle, WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n\n", rc, fs_text);
         return 1;
     }
 

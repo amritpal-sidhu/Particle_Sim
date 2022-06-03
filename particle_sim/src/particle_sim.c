@@ -13,9 +13,6 @@
 
 #define CIRCLE_SEGMENTS     32
 
-#define P_COUNT             1   // Temporary solution to "simulate" a nucleus
-#define E_COUNT             2
-
 
 static void pre_exit_calls(void);
 

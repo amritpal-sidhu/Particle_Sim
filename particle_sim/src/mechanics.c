@@ -10,13 +10,6 @@
 #define UNIVERSAL_GRAVITY_CONST     6.6743E-17 // (N*m^2)/(g^2)
 #define COULOMB_CONST               8.9875E9  // (N*m^2)/(C^2)
 
-/**
- * TODO: Use parameters instead of this.  Figure out why heap allocation
- * and data allocation isn't working (i.e. look into MinGW compiler).
- */
-#define P_COUNT             1   // Temporary solution to "simulate" a nucleus
-#define E_COUNT             2
-
 
 static int is_float_negative(const double val);
 /* Way to deal with [0, PI] range of acos from vector3d__theta() */

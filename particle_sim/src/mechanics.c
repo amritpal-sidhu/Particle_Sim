@@ -83,7 +83,7 @@ void update_positions(particle_t **particles, const size_t particle_count, const
         particles[this]->pos.i += sample_period * change_in_velocity.i;
         particles[this]->pos.j += sample_period * change_in_velocity.j;
 
-        log__write(log_handle, STATUS, "UPDATE MOMENTUM: particle %i, with mass %E and charge %E, now has momentum %E, at position <%.2f, %.2f, %.2f>",
+        log__write(log_handle, STATUS, "%i,%E,%E,%E,%.2f, %.2f, %.2f",
         particles[this]->id, particles[this]->mass, particles[this]->charge, particles[this]->momentum_integral, particles[this]->pos.i, particles[this]->pos.j, particles[this]->pos.k);
     }
 

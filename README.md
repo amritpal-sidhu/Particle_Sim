@@ -19,6 +19,8 @@ git submodule update --init --recurisve
 
  * [CMake](https://cmake.org/download/) (version 3.22 or higher)
  * [MinGW-W64](https://www.mingw-w64.org/) ([MSYS2](https://www.msys2.org/) has a MINGW64 terminal as well)
+   * You will also need the following packages: [mingw-w64-cmake](https://packages.msys2.org/base/mingw-w64-cmake), and [mingw-w64-make](https://packages.msys2.org/base/mingw-w64-make)
+ * [Ruby](https://www.ruby-lang.org/en/documentation/installation/) (for Unity scripts)
 
 ## Building
 

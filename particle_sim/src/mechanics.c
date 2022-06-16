@@ -83,7 +83,7 @@ void update_positions(particle_t **particles, const size_t particle_count, const
         particles[this]->pos.i += sample_period * change_in_velocity.i;
         particles[this]->pos.j += sample_period * change_in_velocity.j;
 
-        log__write(log_handle, STATUS, "%i,%E,%E,%E,%E,%E,%f,%f,%f",
+        log__write(log_handle, DATA, "%i,%E,%E,%E,%E,%E,%f,%f,%f",
         particles[this]->id, particles[this]->mass, particles[this]->charge, 
         particles[this]->momentum_integral.i, particles[this]->momentum_integral.j, particles[this]->momentum_integral.k,
         particles[this]->pos.i, particles[this]->pos.j, particles[this]->pos.k);

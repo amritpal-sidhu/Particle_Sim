@@ -80,7 +80,7 @@ int main(void)
         return 1;
 
     log__write(log_handle, STATUS, "Log file opened.");
-    log__write(log_handle, DATA, "particle_id,mass,charge,x_momentum,y_momentum,z_momentum,x_pos,y_pos,z_pos");
+    log__write(log_handle, DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
 
     create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADI, CIRCLE_SEGMENTS, p_color);
     create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADI/8, CIRCLE_SEGMENTS, e_color);
@@ -166,7 +166,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         break;
 
-    // reset particle locations... but not MOMENTUM!
+    // reset particle locations... but not momenta!
     case GLFW_KEY_R:
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
             particles[i]->pos = initial_pos[i];

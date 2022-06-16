@@ -19,7 +19,7 @@ typedef struct particle
 {
     unsigned long long int id;
     vector3d_t pos;
-    vector3d_t momentum_integral;
+    vector3d_t momenta;
     double mass;
     double charge;
 

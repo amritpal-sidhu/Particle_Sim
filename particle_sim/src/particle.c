@@ -10,7 +10,7 @@ particle_t *particle__new(const unsigned long long int id, const vector3d_t init
     if (p) {
         p->id = id;
         p->pos = initial_pos;
-        p->momentum_integral = initial_momentum;
+        p->momenta = initial_momentum;
         p->mass = mass;
         p->charge = charge;
     }

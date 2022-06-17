@@ -10,10 +10,14 @@
 #include "mechanics.h"
 #include "log.h"
 
-
+#define __DRAW_SPHERE
 #define CIRCLE_Y_SEGMENTS       32
 #define CIRCLE_Z_SEGMENTS       32
-#define SPHERE_SEGMENTS         CIRCLE_Y_SEGMENTS * CIRCLE_Z_SEGMENTS
+#ifdef __DRAW_SPHERE
+#define NUM_SEGMENTS            CIRCLE_Y_SEGMENTS * CIRCLE_Z_SEGMENTS
+#else
+#define NUM_SEGMENTS            CIRCLE_Y_SEGMENTS
+#endif
 
 
 static void pre_exit_calls(void);
@@ -62,7 +66,7 @@ static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
 
 
 /* View scalar initial value determined from experimentation, but not sure it's source */
-static struct draw_variables draw_vars = {.num_segments = SPHERE_SEGMENTS, .view_scalar = 10E-20};
+static struct draw_variables draw_vars = {.num_segments = NUM_SEGMENTS, .view_scalar = 10E-20};
 
 
 /* Entry point */
@@ -72,8 +76,8 @@ int main(void)
     const int initial_window_height = 960;
     
     const vector3d_t sphere_center = {0};
-    struct vertex p_vertices[SPHERE_SEGMENTS];
-    struct vertex e_vertices[SPHERE_SEGMENTS];
+    struct vertex p_vertices[NUM_SEGMENTS];
+    struct vertex e_vertices[NUM_SEGMENTS];
     
     GLuint VBO[P_COUNT+E_COUNT], program;
 
@@ -87,13 +91,17 @@ int main(void)
     /**
      * Populate particle vertex point array for drawing with OpenGL
      */
+    #ifdef __DRAW_SPHERE
     create_sphere_vertex_array(p_vertices, sphere_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, p_color);
     create_sphere_vertex_array(e_vertices, sphere_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, e_color);
+    #else
+    const vector2d_t circle_center = {0};
+    create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, p_color);
+    create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, e_color);
+    #endif
 
-    for (int i = 0; i < SPHERE_SEGMENTS; ++i) {
+    for (int i = 0; i < NUM_SEGMENTS; ++i)
         log__write(log_handle, STATUS, "p_vertex[%i] = <%.3f,%.3f,%.3f>", i, p_vertices[i].pos.i, p_vertices[i].pos.j, p_vertices[i].pos.k);
-        log__write(log_handle, STATUS, "e_vertex[%i] = <%.3f,%.3f,%.3f>", i, e_vertices[i].pos.i, e_vertices[i].pos.j, e_vertices[i].pos.k);
-    }
 
     /**
      * Creation of particle struct

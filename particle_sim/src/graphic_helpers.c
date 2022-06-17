@@ -119,22 +119,17 @@ void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const
 
 void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const double r, const int num_y_segments, const int num_z_segments, const color_t color)
 {
-    /**
-     * Drawing when rotating about the X-axis is still "fuzzy".
-     * Changed to drawing with GL_POINTS and more points to as an interim solution.
-     */
+    for (int a = 0; a < num_y_segments; ++a) {
+        const double theta = 2.0 * PI * a / num_y_segments;
 
-    for (int a = 0; a < num_z_segments; ++a) {
-        const double phi = PI * a / num_z_segments;
+        for(int b = 0; b < num_z_segments; ++b) {
+            const double phi = PI * b / num_z_segments;
 
-        for(int b = 0; b < num_y_segments; ++b) {
-            const double theta = 2.0 * PI * b / num_y_segments;
+            const double x = r * cos(theta) * sin(phi);
+            const double y = r * sin(theta) * sin(phi);
+            const double z = r * cos(phi);
 
-            const double x = r * cos(theta) * cos(phi);
-            const double y = r * sin(theta);
-            const double z = r * cos(theta) * sin(phi);
-
-            const int index = (num_z_segments * a) + b;
+            const int index = (num_y_segments * a) + b;
 
             v[index].pos.i = x + center.i;
             v[index].pos.j = y + center.j;

@@ -11,8 +11,8 @@
 #include "log.h"
 
 #define __DRAW_SPHERE
-#define CIRCLE_Y_SEGMENTS       128
-#define CIRCLE_Z_SEGMENTS       128
+#define CIRCLE_Y_SEGMENTS       32
+#define CIRCLE_Z_SEGMENTS       32
 #ifdef __DRAW_SPHERE
 #define NUM_SEGMENTS            CIRCLE_Y_SEGMENTS * CIRCLE_Z_SEGMENTS
 #else

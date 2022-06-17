@@ -85,7 +85,7 @@ void vertex_buffer_draw(const GLuint VBO, const struct shader_variables shader_v
 
     mat4x4_translate(m, pos.i, pos.j, pos.k);
     mat4x4_scale(m, m, draw_vars.view_scalar);
-    mat4x4_rotate_Y(m, m, glfwGetTime());
+    mat4x4_rotate_X(m, m, glfwGetTime());
     mat4x4_ortho(p, -draw_vars.ratio, draw_vars.ratio, -1.f, 1.f, 1.f, -1.f);
     mat4x4_mul(mvp, p, m);
 
@@ -106,7 +106,7 @@ void vertex_buffer_draw(const GLuint VBO, const struct shader_variables shader_v
 void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const double r, const int num_segments, const color_t color)
 {
     for(int i = 0; i < num_segments; ++i) {
-        double theta = 2.0f * PI * i / (num_segments - 2);
+        double theta = 2.0f * PI * i / num_segments;
 
         double x = r * cos(theta);
         double y = r * sin(theta);
@@ -120,26 +120,20 @@ void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const
 void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const double r, const int num_y_segments, const int num_z_segments, const color_t color)
 {
     /**
-     * I'm uncertain why the z segments need to be reduced by 8 and the y segments need to be reduced by 4.
-     * I used trial and error to arrive that this solution.  NOT good!  Understand what you are doing!
-     * 
-     * TODO: Research how OpenGL draws "fanned" triangles to resolve above uncertainty.  You'll need to understand
-     *       volumne of a sphere and how points are oriented in the vertices as well.
-     * 
-     * TODO: Why do I need to multiply sin(phi) instead of cos(phi)
+     * Drawing when rotating about the X-axis is still "fuzzy".
      */
 
     for (int a = 0; a < num_z_segments; ++a) {
-        double phi = 2.0 * PI * a / (num_z_segments - 0);
+        const double phi = PI * a / num_z_segments;
 
         for(int b = 0; b < num_y_segments; ++b) {
-            double theta = 2.0 * PI * b / (num_y_segments - 0);
+            const double theta = 2.0 * PI * b / num_y_segments;
 
-            double x = r * cos(theta) * cos(phi);
-            double y = r * sin(theta);
-            double z = r * sin(phi);
+            const double x = r * cos(theta) * cos(phi);
+            const double y = r * sin(theta);
+            const double z = r * cos(theta) * sin(phi);
 
-            const int index = (32 * a) + b;
+            const int index = (num_z_segments * a) + b;
 
             v[index].pos.i = x + center.i;
             v[index].pos.j = y + center.j;

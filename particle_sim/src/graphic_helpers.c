@@ -100,20 +100,20 @@ void vertex_buffer_draw(const GLuint VBO, const struct shader_variables shader_v
     glVertexAttribPointer((GLuint)shader_vars.vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*) (sizeof(double) * 3));
 
     glUniformMatrix4fv(shader_vars.mvp_location, 1, GL_FALSE, (const GLfloat*)mvp);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, draw_vars.num_segments);
+    glDrawArrays(GL_POINTS, 0, draw_vars.num_segments);
 }
 
 void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const double r, const int num_segments, const color_t color)
 {
-    for(int i = 0; i < num_segments; ++i) {
-        double theta = 2.0f * PI * i / num_segments;
+    for(int a = 0; a < num_segments; ++a) {
+        const double theta = 2.0f * PI * a / num_segments;
 
-        double x = r * cos(theta);
-        double y = r * sin(theta);
+        const double x = r * cos(theta);
+        const double y = r * sin(theta);
 
-        v[i].pos.i = x + center.i;
-        v[i].pos.j = y + center.j;
-        v[i].color = color;
+        v[a].pos.i = x + center.i;
+        v[a].pos.j = y + center.j;
+        v[a].color = color;
     }
 }
 
@@ -121,6 +121,7 @@ void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const
 {
     /**
      * Drawing when rotating about the X-axis is still "fuzzy".
+     * Changed to drawing with GL_POINTS and more points to as an interim solution.
      */
 
     for (int a = 0; a < num_z_segments; ++a) {

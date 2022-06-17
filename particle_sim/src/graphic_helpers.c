@@ -41,12 +41,12 @@ int shader_compile_and_link(GLuint *program)
 
     rc = fread(vs_text, sizeof(char), vs_size, vs_fp);
     if (rc != vs_size) {
-        log__write(log_handle, WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n\n", rc, vs_text);
+        log__write(log_handle, WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n", rc, vs_text);
         return 1;
     }
     rc = fread(fs_text, sizeof(char), fs_size, fs_fp);
     if (rc != fs_size) {
-        log__write(log_handle, WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n\n", rc, fs_text);
+        log__write(log_handle, WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n", rc, fs_text);
         return 1;
     }
 
@@ -85,6 +85,7 @@ void vertex_buffer_draw(const GLuint VBO, const struct shader_variables shader_v
 
     mat4x4_translate(m, pos.i, pos.j, pos.k);
     mat4x4_scale(m, m, draw_vars.view_scalar);
+    mat4x4_rotate_Y(m, m, glfwGetTime());
     mat4x4_ortho(p, -draw_vars.ratio, draw_vars.ratio, -1.f, 1.f, 1.f, -1.f);
     mat4x4_mul(mvp, p, m);
 
@@ -129,19 +130,21 @@ void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const
      */
 
     for (int a = 0; a < num_z_segments; ++a) {
-        double phi = 2.0 * PI * a / (num_z_segments - 8);
+        double phi = 2.0 * PI * a / (num_z_segments - 0);
 
         for(int b = 0; b < num_y_segments; ++b) {
-            double theta = 2.0 * PI * b / (num_y_segments - 4);
+            double theta = 2.0 * PI * b / (num_y_segments - 0);
 
-            double x = r * cos(theta) * sin(phi);
+            double x = r * cos(theta) * cos(phi);
             double y = r * sin(theta);
             double z = r * sin(phi);
 
-            v[a+b].pos.i = x + center.i;
-            v[a+b].pos.j = y + center.j;
-            v[a+b].pos.k = z + center.k;
-            v[a+b].color = color;
+            const int index = (32 * a) + b;
+
+            v[index].pos.i = x + center.i;
+            v[index].pos.j = y + center.j;
+            v[index].pos.k = z + center.k;
+            v[index].color = color;
         }
     }
 }

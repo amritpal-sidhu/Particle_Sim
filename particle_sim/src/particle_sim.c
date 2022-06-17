@@ -90,6 +90,11 @@ int main(void)
     create_sphere_vertex_array(p_vertices, sphere_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, p_color);
     create_sphere_vertex_array(e_vertices, sphere_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, e_color);
 
+    for (int i = 0; i < SPHERE_SEGMENTS; ++i) {
+        log__write(log_handle, STATUS, "p_vertex[%i] = <%.3f,%.3f,%.3f>", i, p_vertices[i].pos.i, p_vertices[i].pos.j, p_vertices[i].pos.k);
+        log__write(log_handle, STATUS, "e_vertex[%i] = <%.3f,%.3f,%.3f>", i, e_vertices[i].pos.i, e_vertices[i].pos.j, e_vertices[i].pos.k);
+    }
+
     /**
      * Creation of particle struct
      * 

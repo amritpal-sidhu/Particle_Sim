@@ -11,7 +11,9 @@
 #include "log.h"
 
 
-#define CIRCLE_SEGMENTS     32
+#define CIRCLE_Y_SEGMENTS       32
+#define CIRCLE_Z_SEGMENTS       32
+#define SPHERE_SEGMENTS         CIRCLE_Y_SEGMENTS * CIRCLE_Z_SEGMENTS
 
 
 static void pre_exit_calls(void);
@@ -60,7 +62,7 @@ static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
 
 
 /* View scalar initial value determined from experimentation, but not sure it's source */
-static struct draw_variables draw_vars = {.num_segments = CIRCLE_SEGMENTS, .view_scalar = 10E-20};
+static struct draw_variables draw_vars = {.num_segments = SPHERE_SEGMENTS, .view_scalar = 10E-20};
 
 
 /* Entry point */
@@ -69,9 +71,9 @@ int main(void)
     const int initial_window_width = 1280;
     const int initial_window_height = 960;
     
-    const vector2d_t circle_center = {0};
-    struct vertex p_vertices[CIRCLE_SEGMENTS];
-    struct vertex e_vertices[CIRCLE_SEGMENTS];
+    const vector3d_t sphere_center = {0};
+    struct vertex p_vertices[SPHERE_SEGMENTS];
+    struct vertex e_vertices[SPHERE_SEGMENTS];
     
     GLuint VBO[P_COUNT+E_COUNT], program;
 
@@ -82,11 +84,14 @@ int main(void)
     log__write(log_handle, STATUS, "Log file opened.");
     log__write(log_handle, DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
 
-    create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADI, CIRCLE_SEGMENTS, p_color);
-    create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADI/8, CIRCLE_SEGMENTS, e_color);
+    /**
+     * Populate particle vertex point array for drawing with OpenGL
+     */
+    create_sphere_vertex_array(p_vertices, sphere_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, p_color);
+    create_sphere_vertex_array(e_vertices, sphere_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, e_color);
 
     /**
-     * Initialization of specific initial coordinates
+     * Creation of particle struct
      * 
      * Currently initializing the "nucleus" as a stable (equal neutrons to protons to electrons)
      * 

@@ -102,7 +102,7 @@ void vertex_buffer_draw(const GLuint VBO, const struct shader_variables shader_v
     glDrawArrays(GL_TRIANGLE_FAN, 0, draw_vars.num_segments);
 }
 
-void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color)
+void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const double r, const int num_segments, const color_t color)
 {
     for(int i = 0; i < num_segments; ++i) {
         double theta = 2.0f * PI * i / (num_segments - 2);
@@ -113,5 +113,35 @@ void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const
         v[i].pos.i = x + center.i;
         v[i].pos.j = y + center.j;
         v[i].color = color;
+    }
+}
+
+void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const double r, const int num_y_segments, const int num_z_segments, const color_t color)
+{
+    /**
+     * I'm uncertain why the z segments need to be reduced by 8 and the y segments need to be reduced by 4.
+     * I used trial and error to arrive that this solution.  NOT good!  Understand what you are doing!
+     * 
+     * TODO: Research how OpenGL draws "fanned" triangles to resolve above uncertainty.  You'll need to understand
+     *       volumne of a sphere and how points are oriented in the vertices as well.
+     * 
+     * TODO: Why do I need to multiply sin(phi) instead of cos(phi)
+     */
+
+    for (int a = 0; a < num_z_segments; ++a) {
+        double phi = 2.0 * PI * a / (num_z_segments - 8);
+
+        for(int b = 0; b < num_y_segments; ++b) {
+            double theta = 2.0 * PI * b / (num_y_segments - 4);
+
+            double x = r * cos(theta) * sin(phi);
+            double y = r * sin(theta);
+            double z = r * sin(phi);
+
+            v[a+b].pos.i = x + center.i;
+            v[a+b].pos.j = y + center.j;
+            v[a+b].pos.k = z + center.k;
+            v[a+b].color = color;
+        }
     }
 }

@@ -16,11 +16,11 @@ double electric_force(const double q1, const double q2, const double r);
  * field.
  * 
  * @param F Scalar value of force
- * @param distance_vector difference vector pointing towards reference particle
+ * @param direction_vector difference vector pointing towards reference particle, indexed as "this"
  * @return Componentized form of the force
  */
-vector2d_t componentize_force_2d(const double F, const vector2d_t distance_vector);
-vector3d_t componentize_force_3d(const double F, const vector3d_t distance_vector);
+vector2d_t componentize_force_2d(const double F, const vector2d_t direction_vector);
+vector3d_t componentize_force_3d(const double F, const vector3d_t direction_vector);
 
 /**
  *  TODO: look into these more

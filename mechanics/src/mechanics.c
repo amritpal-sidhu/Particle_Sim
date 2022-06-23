@@ -25,10 +25,10 @@ double electric_force(const double q1, const double q2, const double r)
     return (COULOMB_CONST * q1 * q2) / (r * r);
 }
 
-vector2d_t componentize_force_2d(const double F, const vector2d_t distance_vector)
+vector2d_t componentize_force_2d(const double F, const vector2d_t direction_vector)
 {
-    const double azimuth_cos = acos(distance_vector.i / vector2d__mag(distance_vector));
-    const double azimuth_sin = asin(distance_vector.j / vector2d__mag(distance_vector));
+    const double azimuth_cos = acos(direction_vector.i / vector2d__mag(direction_vector));
+    const double azimuth_sin = asin(direction_vector.j / vector2d__mag(direction_vector));
 
     vector2d_t force = {
         .i = F * cos(azimuth_cos),
@@ -38,13 +38,13 @@ vector2d_t componentize_force_2d(const double F, const vector2d_t distance_vecto
     return force;
 }
 
-vector3d_t componentize_force_3d(const double F, const vector3d_t distance_vector)
+vector3d_t componentize_force_3d(const double F, const vector3d_t direction_vector)
 {
-    const double magnitude = vector3d__mag(distance_vector);
-    const double polar_cos = acos(distance_vector.k / magnitude);
-    const double polar_sin = asin(vector2d__mag((vector2d_t){.i = distance_vector.i, .j = distance_vector.j}) / magnitude);
-    const double azimuth_cos = acos(distance_vector.i / (magnitude * sin(polar_sin)));
-    const double azimuth_sin = asin(distance_vector.j / (magnitude * sin(polar_sin)));
+    const double magnitude = vector3d__mag(direction_vector);
+    const double polar_cos = acos(direction_vector.k / magnitude);
+    const double polar_sin = asin(vector2d__mag((vector2d_t){.i = direction_vector.i, .j = direction_vector.j}) / magnitude);
+    const double azimuth_cos = acos(direction_vector.i / (magnitude * sin(polar_sin)));
+    const double azimuth_sin = asin(direction_vector.j / (magnitude * sin(polar_sin)));
 
     vector3d_t force = {
         .i = F * cos(azimuth_cos) * sin(polar_sin),

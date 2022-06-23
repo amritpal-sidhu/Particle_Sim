@@ -5,7 +5,7 @@
 #include "log.h"
 
 
-#define __USE_GRAVITY
+// #define __USE_GRAVITY
 
 #define UNIVERSAL_GRAVITY_CONST     6.6743E-17 // (N*m^2)/(g^2)
 #define COULOMB_CONST               8.9875E9  // (N*m^2)/(C^2)
@@ -64,7 +64,6 @@ void update_positions(particle_t **particles, const size_t particle_count, const
 {
     for (size_t this = 0; this < particle_count; ++this) {
 
-        vector2d_t F2d_resultant = {0};
         vector3d_t F_resultant = {0};
 
         /* Try to find a time improvement to compute all forces acting on current particle */
@@ -73,29 +72,24 @@ void update_positions(particle_t **particles, const size_t particle_count, const
             if (particles[this]->id == particles[that]->id) continue;
 
             const double r = vector3d__distance(particles[this]->pos, particles[that]->pos);
-            const vector2d_t this_pos = {.i = particles[this]->pos.i, .j = particles[this]->pos.j};
-            const vector2d_t that_pos = {.i = particles[that]->pos.i, .j = particles[that]->pos.j};
 
-            F2d_resultant = vector2d__add(
-                F2d_resultant,
-                componentize_force_2d(
+            F_resultant = vector3d__add(
+                F_resultant,
+                componentize_force_3d(
                     electric_force(particles[this]->charge, particles[that]->charge, r),
-                    vector2d__sub(this_pos, that_pos)
+                    vector3d__sub(particles[this]->pos, particles[that]->pos)
                 )
             );
             #ifdef __USE_GRAVITY
-            F2d_resultant = vector2d__add(
-                F2d_resultant,
-                componentize_force_2d(
+            F_resultant = vector3d__add(
+                F_resultant,
+                componentize_force_3d(
                     gravitational_force(particles[this]->mass, particles[that]->mass, r),
-                    vector2d__sub(this_pos, that_pos)
+                    vector3d__sub(particles[that]->pos, particles[this]->pos)
                 )
             );
             #endif
         }
-
-        F_resultant.i = F2d_resultant.i;
-        F_resultant.j = F2d_resultant.j;
 
         update_momentum(&particles[this]->momenta, F_resultant, sample_period);
         const vector3d_t change_in_velocity = vector3d__scale(particles[this]->momenta, 1 / particles[this]->mass);

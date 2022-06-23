@@ -44,12 +44,10 @@ static particle_t *particles[P_COUNT+E_COUNT];
 static const double sample_period = 8E-3;
 static const vector3d_t initial_pos[P_COUNT+E_COUNT] = {
     /* Positively charged */
-    {.i = 0, .j = -0.1, .k = 0},
+    {.i = 0, .j = 0, .k = 0},
     /* Negatively charged */
-    {.i = -0.25, .j = 0, .k = 0},
-    {.i = 0.55, .j = 0.25, .k = 0},
-    // {.i = 0.5, .j = -0.5, .k = 0},
-    // {.i = -0.5, .j = -0.5, .k = 0},
+    {.i = 0.3, .j = 0.5, .k = 0},
+    {.i = 0.5, .j = 0.3, .k = 0},
 };
 static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
     /* Positively charged */
@@ -57,8 +55,6 @@ static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
     /* Negatively charged */
     {.i = 0, .j = 0, .k = 0},
     {.i = 0, .j = 0, .k = 0},
-    // {.i = 0, .j = 0, .k = 0},
-    // {.i = 0, .j = 0, .k = 0},
 };
 
 

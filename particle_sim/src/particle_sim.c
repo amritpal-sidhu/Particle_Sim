@@ -19,6 +19,9 @@
 #define NUM_SEGMENTS            CIRCLE_Y_SEGMENTS
 #endif
 
+#define P_COUNT             1   // Temporary solution to "simulate" a nucleus
+#define E_COUNT             2
+
 
 static void pre_exit_calls(void);
 
@@ -28,12 +31,6 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO);
 static void busy_wait_ms(const float delay_in_ms);
-
-
-/**
- * Current solution to acos output range of [0, PI]
- */
-static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int attract);
 
 
 /* Global variables */
@@ -86,7 +83,6 @@ int main(void)
         return 1;
 
     log__write(log_handle, STATUS, "Log file opened.");
-    log__write(log_handle, DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
 
     /**
      * Populate particle vertex point array for drawing with OpenGL
@@ -147,7 +143,9 @@ int main(void)
 
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
         vertex_buffer_init(&VBO[i], e_vertices, sizeof(e_vertices));
- 
+
+
+    log__write(log_handle, DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
     render_loop(window, program, VBO);
 
     log__write(log_handle, STATUS, "Program terminated correctly.");

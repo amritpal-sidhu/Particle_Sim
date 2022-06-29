@@ -41,12 +41,12 @@ int shader_compile_and_link(GLuint *program)
 
     rc = fread(vs_text, sizeof(char), vs_size, vs_fp);
     if (rc != vs_size) {
-        log__write(log_handle, WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n\n", rc, vs_text);
+        log__write(log_handle, WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n", rc, vs_text);
         return 1;
     }
     rc = fread(fs_text, sizeof(char), fs_size, fs_fp);
     if (rc != fs_size) {
-        log__write(log_handle, WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n\n", rc, fs_text);
+        log__write(log_handle, WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n", rc, fs_text);
         return 1;
     }
 
@@ -102,16 +102,52 @@ void vertex_buffer_draw(const GLuint VBO, const struct shader_variables shader_v
     glDrawArrays(GL_TRIANGLE_FAN, 0, draw_vars.num_segments);
 }
 
-void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color)
+void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const double r, const int num_segments, const color_t color)
 {
-    for(int i = 0; i < num_segments; ++i) {
-        double theta = 2.0f * PI * i / (num_segments - 2);
+    for(int a = 0; a < num_segments; ++a) {
+        const double theta = 2.0f * PI * a / num_segments;
 
-        double x = r * cos(theta);
-        double y = r * sin(theta);
+        const double x = r * cos(theta);
+        const double y = r * sin(theta);
 
-        v[i].pos.i = x + center.i;
-        v[i].pos.j = y + center.j;
-        v[i].color = color;
+        v[a].pos.i = x + center.i;
+        v[a].pos.j = y + center.j;
+        v[a].color = color;
     }
+}
+
+void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const double r, const int num_y_segments, const int num_z_segments, const color_t color)
+{
+
+    v[0].pos.i = 0 + center.i;
+    v[0].pos.j = 0 + center.j;
+    v[0].pos.k = r + center.k;
+    v[0].color = color;
+
+    for (int a = 0; a < num_z_segments; ++a) {
+
+        const double phi = PI * (a+1) / num_z_segments;
+
+        for(int b = 0; b < num_y_segments; ++b) {
+
+            const int index = (num_z_segments * a) + b + 1;
+
+            const double theta = 2.0 * PI * b / num_y_segments;
+
+            const double x = r * cos(theta) * sin(phi);
+            const double y = r * sin(theta) * sin(phi);
+            const double z = r * cos(phi);
+            
+            v[index].pos.i = x + center.i;
+            v[index].pos.j = y + center.j;
+            v[index].pos.k = z + center.k;
+            v[index].color = color;
+        }
+    }
+
+    v[num_z_segments*num_y_segments+1].pos.i = 0 + center.i;
+    v[num_z_segments*num_y_segments+1].pos.j = 0 + center.j;
+    v[num_z_segments*num_y_segments+1].pos.k = -r + center.k;
+    v[num_z_segments*num_y_segments+1].color = color;
+
 }

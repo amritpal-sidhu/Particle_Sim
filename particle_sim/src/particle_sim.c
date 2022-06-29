@@ -10,8 +10,17 @@
 #include "mechanics.h"
 #include "log.h"
 
+#define __DRAW_SPHERE
+#define CIRCLE_Y_SEGMENTS       64
+#define CIRCLE_Z_SEGMENTS       64
+#ifdef __DRAW_SPHERE
+#define NUM_SEGMENTS            (CIRCLE_Y_SEGMENTS * CIRCLE_Z_SEGMENTS) + 2
+#else
+#define NUM_SEGMENTS            CIRCLE_Y_SEGMENTS
+#endif
 
-#define CIRCLE_SEGMENTS     32
+#define P_COUNT             1   // Temporary solution to "simulate" a nucleus
+#define E_COUNT             2
 
 
 static void pre_exit_calls(void);
@@ -22,12 +31,6 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
 static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO);
 static void busy_wait_ms(const float delay_in_ms);
-
-
-/**
- * Current solution to acos output range of [0, PI]
- */
-static void correct_signs(vector3d_t *F, const vector3d_t a, const vector3d_t b, const int attract);
 
 
 /* Global variables */
@@ -41,12 +44,10 @@ static particle_t *particles[P_COUNT+E_COUNT];
 static const double sample_period = 8E-3;
 static const vector3d_t initial_pos[P_COUNT+E_COUNT] = {
     /* Positively charged */
-    {.i = 0, .j = -0.1, .k = 0},
+    {.i = 0, .j = 0, .k = 0},
     /* Negatively charged */
-    {.i = -0.25, .j = 0, .k = 0},
-    {.i = 0.55, .j = 0.25, .k = 0},
-    // {.i = 0.5, .j = -0.5, .k = 0},
-    // {.i = -0.5, .j = -0.5, .k = 0},
+    {.i = 0.3, .j = 0.5, .k = 0},
+    {.i = 0.5, .j = 0.3, .k = 0},
 };
 static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
     /* Positively charged */
@@ -54,13 +55,11 @@ static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
     /* Negatively charged */
     {.i = 0, .j = 0, .k = 0},
     {.i = 0, .j = 0, .k = 0},
-    // {.i = 0, .j = 0, .k = 0},
-    // {.i = 0, .j = 0, .k = 0},
 };
 
 
 /* View scalar initial value determined from experimentation, but not sure it's source */
-static struct draw_variables draw_vars = {.num_segments = CIRCLE_SEGMENTS, .view_scalar = 10E-20};
+static struct draw_variables draw_vars = {.num_segments = NUM_SEGMENTS, .view_scalar = 10E-20};
 
 
 /* Entry point */
@@ -69,9 +68,9 @@ int main(void)
     const int initial_window_width = 1280;
     const int initial_window_height = 960;
     
-    const vector2d_t circle_center = {0};
-    struct vertex p_vertices[CIRCLE_SEGMENTS];
-    struct vertex e_vertices[CIRCLE_SEGMENTS];
+    const vector3d_t sphere_center = {0};
+    struct vertex p_vertices[NUM_SEGMENTS];
+    struct vertex e_vertices[NUM_SEGMENTS];
     
     GLuint VBO[P_COUNT+E_COUNT], program;
 
@@ -80,13 +79,24 @@ int main(void)
         return 1;
 
     log__write(log_handle, STATUS, "Log file opened.");
-    log__write(log_handle, DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
-
-    create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADI, CIRCLE_SEGMENTS, p_color);
-    create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADI/8, CIRCLE_SEGMENTS, e_color);
 
     /**
-     * Initialization of specific initial coordinates
+     * Populate particle vertex point array for drawing with OpenGL
+     */
+    #ifdef __DRAW_SPHERE
+    create_sphere_vertex_array(p_vertices, sphere_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, p_color);
+    create_sphere_vertex_array(e_vertices, sphere_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, e_color);
+    #else
+    const vector2d_t circle_center = {0};
+    create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, p_color);
+    create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, e_color);
+    #endif
+
+    for (int i = 0; i < NUM_SEGMENTS; ++i)
+        log__write(log_handle, STATUS, "p_vertex[%i] = <%.3f,%.3f,%.3f>", i, p_vertices[i].pos.i, p_vertices[i].pos.j, p_vertices[i].pos.k);
+
+    /**
+     * Creation of particle struct
      * 
      * Currently initializing the "nucleus" as a stable (equal neutrons to protons to electrons)
      * 
@@ -129,7 +139,9 @@ int main(void)
 
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
         vertex_buffer_init(&VBO[i], e_vertices, sizeof(e_vertices));
- 
+
+
+    log__write(log_handle, DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
     render_loop(window, program, VBO);
 
     log__write(log_handle, STATUS, "Program terminated correctly.");

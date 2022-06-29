@@ -1,12 +1,8 @@
 set(MAIN particle_sim)
 set(UNITY_DIR ${CMAKE_SOURCE_DIR}/Third-Party/Unity)
 set(GLFW_DIR ${CMAKE_SOURCE_DIR}/Third-Party/glfw)
-set(GENERATE_TEST_RUNNER ${UNITY_DIR}/auto/generate_test_runner.rb)
 
-set(LOCAL_SOURCES particle_sim.c
-                  particle.c
-                  mechanics.c
-                  graphic_helpers.c)
+set(LOCAL_SOURCES particle_sim.c)
 list(TRANSFORM LOCAL_SOURCES PREPEND ${CMAKE_CURRENT_LIST_DIR}/src/)
 
 add_compile_options(
@@ -24,6 +20,6 @@ include_directories(inc
 
 add_executable(${MAIN} WIN32)
 target_sources(${MAIN} PRIVATE ${LOCAL_SOURCES} ${GLFW_DIR}/deps/linmath.h)
-target_link_libraries(${MAIN} PRIVATE vector log glfw glad)
+target_link_libraries(${MAIN} PRIVATE vector log mechanics graphic_helpers)
 
 file(COPY shaders DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})

@@ -8,7 +8,7 @@ find_program(RUBY_PROGRAM ruby /usr/bin REQUIRED)
 
 set(UNITY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Third-Party/Unity CACHE PATH "")
 set(GENERATE_TEST_RUNNER_SCRIPT ${UNITY_DIR}/auto/generate_test_runner.rb CACHE FILEPATH "")
-set(SRC_EXT cpp CACHE INTERNAL "Source file extension")
+set(SRC_EXT c CACHE INTERNAL "Source file extension")
 set(TEST_SRC_FORMAT test_<FILENAME>.${SRC_EXT} CACHE FILEPATH "Template variable format for test source file")
 set(TEST_RUNNER_FORMAT test_<FILENAME>_runner.${SRC_EXT} CACHE FILEPATH "Template variable format for test runner file")
 

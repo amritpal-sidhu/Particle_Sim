@@ -1,5 +1,4 @@
 cmake_minimum_required (VERSION 3.22)
-cmake_policy(SET CMP0091 NEW)
 project(Physics_Sim LANGUAGES C)
 
 include(cmake/config.cmake RESULT_VARIABLE CONFIG_FILE)
@@ -35,10 +34,17 @@ target_include_directories(glfw PRIVATE Third-Party)
 add_subdirectory(Third-Party/glad)
 
 add_subdirectory(Third-Party/Unity)
-target_compile_definitions(unity PRIVATE UNITY_INCLUDE_CONFIG_H)
-target_include_directories(unity PRIVATE Third-Party )
+target_compile_definitions(unity PUBLIC UNITY_INCLUDE_CONFIG_H)
+target_include_directories(unity PRIVATE Third-Party)
 
 add_subdirectory(C-Utilities)
+
+add_subdirectory(mechanics)
+
+add_subdirectory(graphic_helpers)
+target_include_directories(graphic_helpers PRIVATE
+                                        Third-Party/glfw/include
+                                        Third-Party/glfw/deps)
 
 add_subdirectory(particle_sim)
 target_include_directories(particle_sim PRIVATE

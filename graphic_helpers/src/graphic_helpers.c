@@ -41,12 +41,12 @@ int shader_compile_and_link(GLuint *program)
 
     rc = fread(vs_text, sizeof(char), vs_size, vs_fp);
     if (rc != vs_size) {
-        log__write(log_handle, WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n", rc, vs_text);
+        log__write(log_handle, LOG_WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n", rc, vs_text);
         return 1;
     }
     rc = fread(fs_text, sizeof(char), fs_size, fs_fp);
     if (rc != fs_size) {
-        log__write(log_handle, WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n", rc, fs_text);
+        log__write(log_handle, LOG_WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n", rc, fs_text);
         return 1;
     }
 

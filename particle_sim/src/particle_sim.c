@@ -78,7 +78,7 @@ int main(void)
     if (!(log_handle=log__open(DEBUG_OUTPUT_FILEPATH, "w")))
         return 1;
 
-    log__write(log_handle, STATUS, "Log file opened.");
+    log__write(log_handle, LOG_STATUS, "Log file opened.");
 
     /**
      * Populate particle vertex point array for drawing with OpenGL
@@ -93,7 +93,7 @@ int main(void)
     #endif
 
     for (int i = 0; i < NUM_SEGMENTS; ++i)
-        log__write(log_handle, STATUS, "p_vertex[%i] = <%.3f,%.3f,%.3f>", i, p_vertices[i].pos.i, p_vertices[i].pos.j, p_vertices[i].pos.k);
+        log__write(log_handle, LOG_INFO, "p_vertex[%i] = <%.3f,%.3f,%.3f>", i, p_vertices[i].pos.i, p_vertices[i].pos.j, p_vertices[i].pos.k);
 
     /**
      * Creation of particle struct
@@ -141,10 +141,10 @@ int main(void)
         vertex_buffer_init(&VBO[i], e_vertices, sizeof(e_vertices));
 
 
-    log__write(log_handle, DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
+    log__write(log_handle, LOG_DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
     render_loop(window, program, VBO);
 
-    log__write(log_handle, STATUS, "Program terminated correctly.");
+    log__write(log_handle, LOG_STATUS, "Program terminated correctly.");
 
     glfwDestroyWindow(window);
     pre_exit_calls();
@@ -166,7 +166,7 @@ static void pre_exit_calls(void)
 
 static void error_callback(int error, const char *description)
 {
-    log__write(log_handle, ERROR, "Error: %s\n", description);
+    log__write(log_handle, LOG_ERROR, "Error: %s\n", description);
 }
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)

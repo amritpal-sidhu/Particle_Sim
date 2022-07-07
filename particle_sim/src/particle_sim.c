@@ -2,25 +2,11 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "particle_sim.h"
 #include "graphic_helpers.h"
-
-#include "vector.h"
-
 #include "particle.h"
 #include "mechanics.h"
 #include "log.h"
-
-#define __DRAW_SPHERE
-#define CIRCLE_Y_SEGMENTS       64
-#define CIRCLE_Z_SEGMENTS       64
-#ifdef __DRAW_SPHERE
-#define NUM_SEGMENTS            (CIRCLE_Y_SEGMENTS * CIRCLE_Z_SEGMENTS) + 2
-#else
-#define NUM_SEGMENTS            CIRCLE_Y_SEGMENTS
-#endif
-
-#define P_COUNT             1   // Temporary solution to "simulate" a nucleus
-#define E_COUNT             2
 
 
 static void pre_exit_calls(void);
@@ -39,23 +25,6 @@ log_t *log_handle;
 static struct shader_variables shader_vars;
 
 static particle_t *particles[P_COUNT+E_COUNT];
-
-/* Main parameters that will effect the behavior */
-static const double sample_period = 8E-3;
-static const vector3d_t initial_pos[P_COUNT+E_COUNT] = {
-    /* Positively charged */
-    {.i = 0, .j = 0, .k = 0},
-    /* Negatively charged */
-    {.i = 0.3, .j = 0.5, .k = 0},
-    {.i = 0.5, .j = 0.3, .k = 0},
-};
-static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
-    /* Positively charged */
-    {.i = 0, .j = 0, .k = 0},
-    /* Negatively charged */
-    {.i = 0, .j = 0, .k = 0},
-    {.i = 0, .j = 0, .k = 0},
-};
 
 
 /* View scalar initial value determined from experimentation, but not sure it's source */
@@ -104,9 +73,9 @@ int main(void)
      * further complicating this simulation.  Something to work on in the future.
      */
     for (size_t i = 0; i < P_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_spin[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE);
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_spin[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {

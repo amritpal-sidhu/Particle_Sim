@@ -15,16 +15,21 @@
 #define FAKE_NUCLEUS_RADI       0.1
 
 
-typedef struct particle
+typedef struct
 {
     unsigned long long int id;
     vector3d_t pos;
     vector3d_t momenta;
+    vector3d_t spin;
+    vector3d_t angular_momenta;
     double mass;
     double charge;
 
 } particle_t;
 
 
-particle_t *particle__new(const unsigned long long int id, const vector3d_t initial_pos, const vector3d_t initial_momentum, const double mass, const double charge);
+particle_t *particle__new(const unsigned long long int id,
+                          const vector3d_t initial_pos, const vector3d_t initial_momentum,
+                          const vector3d_t initial_spin, const vector3d_t initial_angular_momentum,
+                          const double mass, const double charge);
 void particle__delete(particle_t *p);

@@ -7,6 +7,8 @@
 
 // #define __USE_GRAVITY
 
+#define LOCAL_EPSILON               1E-128
+
 #define UNIVERSAL_GRAVITY_CONST     6.6743E-17 // (N*m^2)/(g^2)
 #define COULOMB_CONST               8.9875E9  // (N*m^2)/(C^2)
 
@@ -15,13 +17,17 @@ extern log_t *log_handle;
 
 
 /* Public function definitions */
-double gravitational_force(const double m1, const double m2, const double r)
+double gravitational_force(const double m1, const double m2, double r)
 {
+    if (r < LOCAL_EPSILON) r = LOCAL_EPSILON;
+
     return (UNIVERSAL_GRAVITY_CONST * m1 * m2) / (r * r);
 }
 
-double electric_force(const double q1, const double q2, const double r)
+double electric_force(const double q1, const double q2, double r)
 {
+    if (r < LOCAL_EPSILON) r = LOCAL_EPSILON;
+
     return (COULOMB_CONST * q1 * q2) / (r * r);
 }
 

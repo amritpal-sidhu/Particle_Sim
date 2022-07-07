@@ -6,8 +6,8 @@
 #include "vector.h"
 
 
-double gravitational_force(const double m1, const double m2, const double r);
-double electric_force(const double q1, const double q2, const double r);
+double gravitational_force(const double m1, const double m2, double r);
+double electric_force(const double q1, const double q2, double r);
 
 /**
  * These functions use the position vectors to convert a scalar

@@ -73,9 +73,9 @@ int main(void)
      * further complicating this simulation.  Something to work on in the future.
      */
     for (size_t i = 0; i < P_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_spin[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_spin[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE, FAKE_NUCLEUS_RADI);
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_spin[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_spin[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE, FAKE_NUCLEUS_RADI/8);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {

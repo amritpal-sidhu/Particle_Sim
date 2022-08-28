@@ -85,7 +85,6 @@ void time_evolution(particle_t **particles, const size_t particle_count, const d
 
                 elastic_collision_linear_momenta_update(particles[this], particles[that]);
                 update_position(particles[this], sample_period);
-                break;
             }
         }
 

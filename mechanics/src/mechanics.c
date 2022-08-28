@@ -19,7 +19,7 @@ extern log_t *log_handle;
 /* Private function declarations */
 static void update_momenta(particle_t *particle, const vector3d_t F, const double sample_period);
 static void update_position(particle_t *particle, const double sample_period);
-static vector3d_t resultant_force(particle_t **particles, const size_t particle_count, const size_t this);
+static vector3d_t resultant_force_from_fields(particle_t **particles, const size_t particle_count, const size_t this);
 static void elastic_collision_linear_momenta_update(particle_t *this, particle_t *that);
 
 /* Public function definitions */
@@ -73,7 +73,7 @@ void time_evolution(particle_t **particles, const size_t particle_count, const d
 {
     for (size_t this = 0; this < particle_count; ++this) {
 
-        update_momenta(particles[this], resultant_force(particles, particle_count, this), sample_period);
+        update_momenta(particles[this], resultant_force_from_fields(particles, particle_count, this), sample_period);
         update_position(particles[this], sample_period);
 
         /* Simple check for collision with another particle and perform momentum update */
@@ -120,7 +120,7 @@ static void update_position(particle_t *particle, const double sample_period)
     particle->pos = vector3d__add(particle->pos, vector3d__scale(change_in_velocity, sample_period));
 }
 
-static vector3d_t resultant_force(particle_t **particles, const size_t particle_count, const size_t this)
+static vector3d_t resultant_force_from_fields(particle_t **particles, const size_t particle_count, const size_t this)
 {
     vector3d_t F_resultant = {0};
 

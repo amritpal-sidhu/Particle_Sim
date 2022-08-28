@@ -16,6 +16,10 @@
 extern log_t *log_handle;
 
 
+/* Private function declarations */
+static vector3d_t resultant_force(particle_t **particles, const size_t particle_count, const size_t this);
+static void elastic_collision_linear_momenta_update(particle_t *this, particle_t *that);
+
 /* Public function definitions */
 double gravitational_force(const double m1, const double m2, double r)
 {
@@ -70,37 +74,24 @@ void update_positions(particle_t **particles, const size_t particle_count, const
 {
     for (size_t this = 0; this < particle_count; ++this) {
 
-        vector3d_t F_resultant = {0};
-
-        /* Try to find a time improvement to compute all forces acting on current particle */
-        for (size_t that = 0; that < particle_count; ++that) {
-
-            if (particles[this]->id == particles[that]->id) continue;
-
-            const double r = vector3d__distance(particles[this]->pos, particles[that]->pos);
-
-            F_resultant = vector3d__add(
-                F_resultant,
-                componentize_force_3d(
-                    electric_force(particles[this]->charge, particles[that]->charge, r),
-                    vector3d__sub(particles[this]->pos, particles[that]->pos)
-                )
-            );
-            #ifdef __USE_GRAVITY
-            F_resultant = vector3d__add(
-                F_resultant,
-                componentize_force_3d(
-                    gravitational_force(particles[this]->mass, particles[that]->mass, r),
-                    vector3d__sub(particles[that]->pos, particles[this]->pos)
-                )
-            );
-            #endif
-        }
-
-        update_momentum(&particles[this]->momenta, F_resultant, sample_period);
+        update_momentum(&particles[this]->momenta, resultant_force(particles, particle_count, this), sample_period);
         const vector3d_t change_in_velocity = vector3d__scale(particles[this]->momenta, 1 / particles[this]->mass);
 
         particles[this]->pos = vector3d__add(particles[this]->pos, vector3d__scale(change_in_velocity, sample_period));
+
+        /* Simple check for collision with another particle and perform momentum update */
+        for (size_t that = 0; that < particle_count; ++that) {
+            
+            if (particles[this]->id == particles[that]->id) continue;
+
+            if (detect_collision(particles[this], particles[that])) {
+
+                elastic_collision_linear_momenta_update(particles[this], particles[that]);
+                const vector3d_t change_in_velocity = vector3d__scale(particles[this]->momenta, 1 / particles[this]->mass);
+                particles[this]->pos = vector3d__add(particles[this]->pos, vector3d__scale(change_in_velocity, sample_period));
+                break;
+            }
+        }
 
         log__write(log_handle, LOG_DATA, "%i,%E,%E,%E,%E,%E,%f,%f,%f",
         particles[this]->id, particles[this]->mass, particles[this]->charge, 
@@ -109,4 +100,81 @@ void update_positions(particle_t **particles, const size_t particle_count, const
     }
 
     log__write(log_handle, LOG_NONE, "");
+}
+
+int detect_collision(const particle_t *this, const particle_t *that)
+{
+    /**
+     * nearest_point could be useful when determining spin
+     */
+    // const vector3d_t distance_vector = vector3d__sub(that->pos, this->pos);
+    // const vector3d_t nearest_point = vector3d__scale(distance_vector, this->radius / vector3d__mag(distance_vector));
+    
+    return vector3d__distance(this->pos, that->pos) < (this->radius + that->radius);
+}
+
+/* Private function definitions */
+static vector3d_t resultant_force(particle_t **particles, const size_t particle_count, const size_t this)
+{
+    vector3d_t F_resultant = {0};
+
+    /* Try to find a time improvement to compute all forces acting on current particle */
+    for (size_t that = 0; that < particle_count; ++that) {
+
+        if (particles[this]->id == particles[that]->id) continue;
+
+        const double r = vector3d__distance(particles[this]->pos, particles[that]->pos);
+
+        F_resultant = vector3d__add(
+            F_resultant,
+            componentize_force_3d(
+                electric_force(particles[this]->charge, particles[that]->charge, r),
+                vector3d__sub(particles[this]->pos, particles[that]->pos)
+            )
+        );
+        #ifdef __USE_GRAVITY
+        F_resultant = vector3d__add(
+            F_resultant,
+            componentize_force_3d(
+                gravitational_force(particles[this]->mass, particles[that]->mass, r),
+                vector3d__sub(particles[that]->pos, particles[this]->pos)
+            )
+        );
+        #endif
+    }
+
+    return F_resultant;
+}
+
+/**
+ * Simple 2-body elastic collision for linear momentum
+ * 
+ *       (m1 - m2)          2 * m2
+ * V1f = --------- * V1i + --------- * V2i
+ *       (m1 + m2)         (m1 + m2)
+ * 
+ *        2 * m1           (m2 - m1)
+ * V2f = --------- * V1i + --------- * V2i
+ *       (m1 + m2)         (m1 + m2)
+ */
+static void elastic_collision_linear_momenta_update(particle_t *this, particle_t *that)
+{
+    const vector3d_t Vi_this = vector3d__scale(this->momenta, 1 / this->mass);
+    const vector3d_t Vi_that = vector3d__scale(that->momenta, 1 / that->mass);
+
+    const double total_mass = this->mass + that->mass;
+    const double mass_diff = this->mass - that->mass;
+
+    const vector3d_t Vf_this = vector3d__add(
+        vector3d__scale(Vi_this, mass_diff/total_mass),
+        vector3d__scale(Vi_that, 2*that->mass/total_mass)
+    );
+
+    const vector3d_t Vf_that = vector3d__add(
+        vector3d__scale(Vi_this, 2*this->mass/total_mass),
+        vector3d__scale(Vi_that, -mass_diff/total_mass)
+    );
+
+    this->momenta = vector3d__scale(Vf_this, this->mass);
+    that->momenta = vector3d__scale(Vf_that, that->mass);
 }

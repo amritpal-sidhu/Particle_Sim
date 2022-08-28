@@ -25,7 +25,5 @@ vector3d_t componentize_force_3d(const double F, const vector3d_t direction_vect
 /**
  *  TODO: look into these more
  */
-void update_momentum(vector3d_t *momentum_integral, const vector3d_t F, const double sample_period);
-void update_positions(particle_t **particles, const size_t particle_count, const double sample_period);
-
+void time_evolution(particle_t **particles, const size_t particle_count, const double sample_period);
 int detect_collision(const particle_t *this, const particle_t *that);

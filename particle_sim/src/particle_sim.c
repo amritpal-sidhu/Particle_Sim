@@ -198,7 +198,7 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        update_positions(particles, P_COUNT+E_COUNT, sample_period);
+        time_evolution(particles, P_COUNT+E_COUNT, sample_period);
 
         busy_wait_ms(10);
     }

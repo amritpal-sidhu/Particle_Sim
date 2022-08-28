@@ -17,6 +17,8 @@ extern log_t *log_handle;
 
 
 /* Private function declarations */
+static void update_momenta(particle_t *particle, const vector3d_t F, const double sample_period);
+static void update_position(particle_t *particle, const double sample_period);
 static vector3d_t resultant_force(particle_t **particles, const size_t particle_count, const size_t this);
 static void elastic_collision_linear_momenta_update(particle_t *this, particle_t *that);
 
@@ -65,19 +67,14 @@ vector3d_t componentize_force_3d(const double F, const vector3d_t direction_vect
     return force;
 }
 
-void update_momentum(vector3d_t *momentum_integral, const vector3d_t F, const double sample_period)
-{
-    *momentum_integral = vector3d__add(*momentum_integral, vector3d__scale(F, sample_period));
-}
 
-void update_positions(particle_t **particles, const size_t particle_count, const double sample_period)
+
+void time_evolution(particle_t **particles, const size_t particle_count, const double sample_period)
 {
     for (size_t this = 0; this < particle_count; ++this) {
 
-        update_momentum(&particles[this]->momenta, resultant_force(particles, particle_count, this), sample_period);
-        const vector3d_t change_in_velocity = vector3d__scale(particles[this]->momenta, 1 / particles[this]->mass);
-
-        particles[this]->pos = vector3d__add(particles[this]->pos, vector3d__scale(change_in_velocity, sample_period));
+        update_momenta(particles[this], resultant_force(particles, particle_count, this), sample_period);
+        update_position(particles[this], sample_period);
 
         /* Simple check for collision with another particle and perform momentum update */
         for (size_t that = 0; that < particle_count; ++that) {
@@ -87,8 +84,7 @@ void update_positions(particle_t **particles, const size_t particle_count, const
             if (detect_collision(particles[this], particles[that])) {
 
                 elastic_collision_linear_momenta_update(particles[this], particles[that]);
-                const vector3d_t change_in_velocity = vector3d__scale(particles[this]->momenta, 1 / particles[this]->mass);
-                particles[this]->pos = vector3d__add(particles[this]->pos, vector3d__scale(change_in_velocity, sample_period));
+                update_position(particles[this], sample_period);
                 break;
             }
         }
@@ -114,6 +110,17 @@ int detect_collision(const particle_t *this, const particle_t *that)
 }
 
 /* Private function definitions */
+static void update_momenta(particle_t *particle, const vector3d_t F, const double sample_period)
+{
+    particle->momenta = vector3d__add(particle->momenta, vector3d__scale(F, sample_period));
+}
+
+static void update_position(particle_t *particle, const double sample_period)
+{
+    const vector3d_t change_in_velocity = vector3d__scale(particle->momenta, 1 / particle->mass);
+    particle->pos = vector3d__add(particle->pos, vector3d__scale(change_in_velocity, sample_period));
+}
+
 static vector3d_t resultant_force(particle_t **particles, const size_t particle_count, const size_t this)
 {
     vector3d_t F_resultant = {0};

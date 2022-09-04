@@ -168,5 +168,6 @@ void test_detect_collision(void)
 
         snprintf(msg_buf, sizeof(msg_buf), "Failure at %i loop iteration", i);
         TEST_ASSERT_EQUAL_MESSAGE(expected_values[i], detect_collision(&particle_a[i], &particle_b[i]), msg_buf);
+        resetTest();
     }
 }

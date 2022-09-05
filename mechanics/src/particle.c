@@ -5,7 +5,7 @@
 
 particle_t *particle__new(const unsigned long long int id,
                           const vector3d_t initial_pos, const vector3d_t initial_momentum,
-                          const vector3d_t initial_spin, const vector3d_t initial_angular_momentum,
+                          const vector3d_t initial_orientation, const vector3d_t initial_angular_momentum,
                           const double mass, const double charge, const double radius)
 {
     particle_t *p = malloc(sizeof(particle_t));
@@ -14,7 +14,7 @@ particle_t *particle__new(const unsigned long long int id,
         p->id = id;
         p->pos = initial_pos;
         p->momenta = initial_momentum;
-        p->spin = initial_spin;
+        p->orientation = initial_orientation;
         p->angular_momenta = initial_angular_momentum;
         p->mass = mass;
         p->charge = charge;

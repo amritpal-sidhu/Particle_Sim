@@ -20,7 +20,7 @@ typedef struct
     unsigned long long int id;
     vector3d_t pos;
     vector3d_t momenta;
-    vector3d_t spin;
+    vector3d_t orientation;
     vector3d_t angular_momenta;
     double mass;
     double charge;
@@ -31,6 +31,6 @@ typedef struct
 
 particle_t *particle__new(const unsigned long long int id,
                           const vector3d_t initial_pos, const vector3d_t initial_momentum,
-                          const vector3d_t initial_spin, const vector3d_t initial_angular_momentum,
+                          const vector3d_t initial_orientation, const vector3d_t initial_angular_momentum,
                           const double mass, const double charge, const double radius);
 void particle__delete(particle_t *p);

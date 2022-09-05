@@ -110,7 +110,7 @@ int main(void)
         vertex_buffer_init(&VBO[i], e_vertices, sizeof(e_vertices));
 
 
-    log__write(log_handle, LOG_DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
+    log__write(log_handle, LOG_DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos,pitch_momenta,roll_momenta,yaw_momenta,pitch,roll,yaw");
     render_loop(window, program, VBO);
 
     log__write(log_handle, LOG_STATUS, "Program terminated correctly.");

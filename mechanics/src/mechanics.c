@@ -19,8 +19,11 @@ extern log_t *log_handle;
 /* Private function declarations */
 static void update_momenta(particle_t *particle, const vector3d_t F, const double sample_period);
 static void update_position(particle_t *particle, const double sample_period);
+static void update_angular_momenta(particle_t *particle, const vector3d_t r, const vector3d_t momentum);
+static void update_orientation(particle_t *particle, const double sample_period);
 static vector3d_t resultant_force_from_fields(particle_t **particles, const size_t particle_count, const size_t this);
 static void elastic_collision_linear_momenta_update(particle_t *this, particle_t *that);
+static void update_angular_momenta_after_collision(particle_t *this, particle_t *that);
 
 /* Public function definitions */
 double gravitational_force(const double m1, const double m2, double r)
@@ -83,15 +86,21 @@ void time_evolution(particle_t **particles, const size_t particle_count, const d
 
             if (detect_collision(particles[this], particles[that])) {
 
+                /* Unconserved angular momentum portion */
+                update_angular_momenta_after_collision(particles[this], particles[that]);
+                update_orientation(particles[this], sample_period);
+
                 elastic_collision_linear_momenta_update(particles[this], particles[that]);
                 update_position(particles[this], sample_period);
             }
         }
 
-        log__write(log_handle, LOG_DATA, "%i,%E,%E,%E,%E,%E,%f,%f,%f",
+        log__write(log_handle, LOG_DATA, "%i,%E,%E,%E,%E,%E,%f,%f,%f,%E,%E,%E,%f,%f,%f",
         particles[this]->id, particles[this]->mass, particles[this]->charge, 
         particles[this]->momenta.i, particles[this]->momenta.j, particles[this]->momenta.k,
-        particles[this]->pos.i, particles[this]->pos.j, particles[this]->pos.k);
+        particles[this]->pos.i, particles[this]->pos.j, particles[this]->pos.k,
+        particles[this]->angular_momenta.i,particles[this]->angular_momenta.j,particles[this]->angular_momenta.k,
+        particles[this]->orientation.i,particles[this]->orientation.j,particles[this]->orientation.k);
     }
 
     log__write(log_handle, LOG_NONE, "");
@@ -99,12 +108,6 @@ void time_evolution(particle_t **particles, const size_t particle_count, const d
 
 int detect_collision(const particle_t *this, const particle_t *that)
 {
-    /**
-     * nearest_point could be useful when determining spin
-     */
-    // const vector3d_t distance_vector = vector3d__sub(that->pos, this->pos);
-    // const vector3d_t nearest_point = vector3d__scale(distance_vector, this->radius / vector3d__mag(distance_vector));
-    
     return vector3d__distance(this->pos, that->pos) < (this->radius + that->radius);
 }
 
@@ -118,6 +121,22 @@ static void update_position(particle_t *particle, const double sample_period)
 {
     const vector3d_t change_in_velocity = vector3d__scale(particle->momenta, 1 / particle->mass);
     particle->pos = vector3d__add(particle->pos, vector3d__scale(change_in_velocity, sample_period));
+}
+
+static void update_angular_momenta(particle_t *particle, const vector3d_t r, const vector3d_t momentum)
+{
+    /**
+     * Violating conservation of momentum and angular momentum here for the sake of simplicity.
+     * TODO: Don't violate the laws of nature!
+     */
+    particle->angular_momenta = vector3d__add(particle->angular_momenta, vector3d__cross_product(r, momentum));
+}
+
+static void update_orientation(particle_t *particle, const double sample_period)
+{
+    const double moment_of_inertia_of_a_sphere = 0.4 * particle->mass * particle->radius * particle->radius;
+    const vector3d_t change_in_orientation = vector3d__scale(particle->angular_momenta, 1 / moment_of_inertia_of_a_sphere);
+    particle->orientation = vector3d__add(particle->orientation, vector3d__scale(change_in_orientation, sample_period));
 }
 
 static vector3d_t resultant_force_from_fields(particle_t **particles, const size_t particle_count, const size_t this)
@@ -183,4 +202,19 @@ static void elastic_collision_linear_momenta_update(particle_t *this, particle_t
 
     this->momenta = vector3d__scale(Vf_this, this->mass);
     that->momenta = vector3d__scale(Vf_that, that->mass);
+}
+
+/**
+ * NOTE: Angular momentum is not being conserved along with linear momentum
+ *       this way.  This is a placeholder.
+ */
+static void update_angular_momenta_after_collision(particle_t *this, particle_t *that)
+{
+    const vector3d_t this_to_that_distance = vector3d__sub(that->pos, this->pos);
+    const vector3d_t that_to_this_distance = vector3d__scale(this_to_that_distance, -1);
+    const vector3d_t r_this_to_that = vector3d__scale(this_to_that_distance, this->radius / vector3d__mag(this_to_that_distance));
+    const vector3d_t r_that_to_this = vector3d__scale(that_to_this_distance, that->radius / vector3d__mag(that_to_this_distance));
+
+    this->angular_momenta = vector3d__cross_product(r_that_to_this, that->momenta);
+    that->angular_momenta = vector3d__cross_product(r_this_to_that, this->momenta);
 }

@@ -11,8 +11,9 @@
 #define ELECTRON_MASS       9.11E-28
 
 /* Based on Wikipedia covalent radi */
-#define HELIUM_NUCLEUS_RADI     0.5E-15  // Meters
-#define FAKE_NUCLEUS_RADI       0.1
+#define HELIUM_NUCLEUS_RADIUS   28E-12     // Meters
+#define ELECTRON_RADIUS         10E-15      // Meters
+#define FAKE_NUCLEUS_RADIUS     0.1
 
 
 typedef struct

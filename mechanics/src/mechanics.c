@@ -78,6 +78,7 @@ void time_evolution(particle_t **particles, const size_t particle_count, const d
 
         update_momenta(particles[this], resultant_force_from_fields(particles, particle_count, this), sample_period);
         update_position(particles[this], sample_period);
+        update_orientation(particles[this], sample_period);
 
         /* Simple check for collision with another particle and perform momentum update */
         for (size_t that = 0; that < particle_count; ++that) {
@@ -134,7 +135,11 @@ static void update_angular_momenta(particle_t *particle, const vector3d_t r, con
 
 static void update_orientation(particle_t *particle, const double sample_period)
 {
-    const double moment_of_inertia_of_a_sphere = 0.4 * particle->mass * particle->radius * particle->radius;
+    /**
+     * Moment of inertia of a sphere about its axis is 4/5 M R^2
+     * with respect to its surface is 7/5 M R^2
+     */
+    const double moment_of_inertia_of_a_sphere = 1.4 * particle->mass * particle->radius * particle->radius;
     const vector3d_t change_in_orientation = vector3d__scale(particle->angular_momenta, 1 / moment_of_inertia_of_a_sphere);
     particle->orientation = vector3d__add(particle->orientation, vector3d__scale(change_in_orientation, sample_period));
 }

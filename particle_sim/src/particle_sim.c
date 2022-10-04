@@ -22,8 +22,6 @@ static void busy_wait_ms(const float delay_in_ms);
 /* Global variables */
 log_t *log_handle;
 
-static struct shader_variables shader_vars;
-
 static particle_t *particles[P_COUNT+E_COUNT];
 
 
@@ -99,9 +97,9 @@ int main(void)
         exit(1);
     }
 
-    shader_vars.mvp_location = glGetUniformLocation(program, "MVP");
-    shader_vars.vpos_location = glGetAttribLocation(program, "vPos");
-    shader_vars.vcol_location = glGetAttribLocation(program, "vCol");
+    draw_vars.shader_vars.mvp_location = glGetUniformLocation(program, "MVP");
+    draw_vars.shader_vars.vpos_location = glGetAttribLocation(program, "vPos");
+    draw_vars.shader_vars.vcol_location = glGetAttribLocation(program, "vCol");
 
     for (size_t i = 0; i < P_COUNT; ++i)
         vertex_buffer_init(&VBO[i], p_vertices, sizeof(p_vertices));
@@ -192,8 +190,11 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
-        for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
-            vertex_buffer_draw(VBO[i], shader_vars, draw_vars, particles[i]->pos);
+        for (size_t i = 0; i < P_COUNT+E_COUNT; ++i) {
+            draw_vars.pos = particles[i]->pos;
+            draw_vars.angle = particles[i]->orientation;
+            vertex_buffer_draw(VBO[i], draw_vars);
+        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();

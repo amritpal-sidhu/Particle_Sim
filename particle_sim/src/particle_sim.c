@@ -51,12 +51,12 @@ int main(void)
      * Populate particle vertex point array for drawing with OpenGL
      */
     #ifdef __DRAW_SPHERE
-    create_sphere_vertex_array(p_vertices, sphere_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, p_color);
-    create_sphere_vertex_array(e_vertices, sphere_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, e_color);
+    create_sphere_vertex_array(p_vertices, sphere_center, FAKE_NUCLEUS_RADIUS, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, p_color);
+    create_sphere_vertex_array(e_vertices, sphere_center, FAKE_NUCLEUS_RADIUS/8, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, e_color);
     #else
     const vector2d_t circle_center = {0};
-    create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, p_color);
-    create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, e_color);
+    create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADIUS, CIRCLE_Y_SEGMENTS, p_color);
+    create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADIUS/8, CIRCLE_Y_SEGMENTS, e_color);
     #endif
 
     for (int i = 0; i < NUM_SEGMENTS; ++i)
@@ -71,9 +71,9 @@ int main(void)
      * further complicating this simulation.  Something to work on in the future.
      */
     for (size_t i = 0; i < P_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE, FAKE_NUCLEUS_RADI);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE, FAKE_NUCLEUS_RADIUS);
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE, FAKE_NUCLEUS_RADI/8);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE, FAKE_NUCLEUS_RADIUS/8);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {

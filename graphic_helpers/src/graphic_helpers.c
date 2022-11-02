@@ -84,9 +84,10 @@ void vertex_buffer_draw(const GLuint VBO, const struct draw_variables draw_vars)
     mat4x4 m, p, mvp;
 
     mat4x4_translate(m, draw_vars.pos.i, draw_vars.pos.j, draw_vars.pos.k);
-    mat4x4_rotate_X(m, m, draw_vars.angle.i);
-    mat4x4_rotate_Y(m, m, draw_vars.angle.j);
-    mat4x4_rotate_Z(m, m, draw_vars.angle.k);
+    /* Angles need to be "unscaled" */
+    mat4x4_rotate_X(m, m, draw_vars.angle.i/draw_vars.view_scalar);
+    mat4x4_rotate_Y(m, m, draw_vars.angle.j/draw_vars.view_scalar);
+    mat4x4_rotate_Z(m, m, draw_vars.angle.k/draw_vars.view_scalar);
     mat4x4_scale(m, m, draw_vars.view_scalar);
     mat4x4_ortho(p, -draw_vars.ratio, draw_vars.ratio, -1.f, 1.f, 1.f, -1.f);
     mat4x4_mul(mvp, p, m);

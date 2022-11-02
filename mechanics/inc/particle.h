@@ -12,7 +12,7 @@
 
 /* Based on Wikipedia covalent radi */
 #define HELIUM_NUCLEUS_RADIUS   28E-12     // Meters
-#define ELECTRON_RADIUS         10E-15      // Meters
+#define ELECTRON_RADIUS         10E-15     // Meters
 #define FAKE_NUCLEUS_RADIUS     0.1
 
 

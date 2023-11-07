@@ -6,8 +6,8 @@
 #include "vector.h"
 
 
-double gravitational_force(const double m1, const double m2, const double r);
-double electric_force(const double q1, const double q2, const double r);
+double gravitational_force(const double m1, const double m2, double r);
+double electric_force(const double q1, const double q2, double r);
 
 /**
  * These functions use the position vectors to convert a scalar
@@ -25,5 +25,5 @@ vector3d_t componentize_force_3d(const double F, const vector3d_t direction_vect
 /**
  *  TODO: look into these more
  */
-void update_momentum(vector3d_t *momentum_integral, const vector3d_t F, const double sample_period);
-void update_positions(particle_t **particles, const size_t particle_count, const double sample_period);
+void time_evolution(particle_t **particles, const size_t particle_count, const double sample_period);
+int detect_collision(const particle_t *this, const particle_t *that);

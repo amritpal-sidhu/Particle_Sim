@@ -79,26 +79,31 @@ void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_
     glBufferData(GL_ARRAY_BUFFER, v_size, vertices, GL_STATIC_DRAW);
 }
 
-void vertex_buffer_draw(const GLuint VBO, const struct shader_variables shader_vars, const struct draw_variables draw_vars, const vector3d_t pos)
+void vertex_buffer_draw(const GLuint VBO, const struct draw_variables draw_vars)
 {
     mat4x4 m, p, mvp;
 
-    mat4x4_translate(m, pos.i, pos.j, pos.k);
+    mat4x4_translate(m, draw_vars.pos.i, draw_vars.pos.j, draw_vars.pos.k);
+    /* Angles need to be "unscaled" */
+    mat4x4_rotate_X(m, m, draw_vars.angle.i/draw_vars.view_scalar);
+    mat4x4_rotate_Y(m, m, draw_vars.angle.j/draw_vars.view_scalar);
+    mat4x4_rotate_Z(m, m, draw_vars.angle.k/draw_vars.view_scalar);
     mat4x4_scale(m, m, draw_vars.view_scalar);
     mat4x4_ortho(p, -draw_vars.ratio, draw_vars.ratio, -1.f, 1.f, 1.f, -1.f);
     mat4x4_mul(mvp, p, m);
+
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     /**
      * These attributes need to be reassociated with the currently bound vertex buffer object for the shader
      * to properly set the variables.
      */
-    glEnableVertexAttribArray((GLuint)shader_vars.vpos_location);
-    glVertexAttribPointer((GLuint)shader_vars.vpos_location, 3, GL_DOUBLE, GL_FALSE, sizeof(struct vertex), (void*) 0);
-    glEnableVertexAttribArray((GLuint)shader_vars.vcol_location);
-    glVertexAttribPointer((GLuint)shader_vars.vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*) (sizeof(double) * 3));
+    glEnableVertexAttribArray((GLuint)draw_vars.shader_vars.vpos_location);
+    glVertexAttribPointer((GLuint)draw_vars.shader_vars.vpos_location, 3, GL_DOUBLE, GL_FALSE, sizeof(struct vertex), (void*) 0);
+    glEnableVertexAttribArray((GLuint)draw_vars.shader_vars.vcol_location);
+    glVertexAttribPointer((GLuint)draw_vars.shader_vars.vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*) (sizeof(double) * 3));
 
-    glUniformMatrix4fv(shader_vars.mvp_location, 1, GL_FALSE, (const GLfloat*)mvp);
+    glUniformMatrix4fv(draw_vars.shader_vars.mvp_location, 1, GL_FALSE, (const GLfloat*)mvp);
     glDrawArrays(GL_TRIANGLE_FAN, 0, draw_vars.num_segments);
 }
 
@@ -118,7 +123,6 @@ void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const
 
 void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const double r, const int num_y_segments, const int num_z_segments, const color_t color)
 {
-
     v[0].pos.i = 0 + center.i;
     v[0].pos.j = 0 + center.j;
     v[0].pos.k = r + center.k;
@@ -141,7 +145,10 @@ void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const
             v[index].pos.i = x + center.i;
             v[index].pos.j = y + center.j;
             v[index].pos.k = z + center.k;
-            v[index].color = color;
+            if (!(a % 2))
+                v[index].color = (color_t){1,1,1};
+            else
+                v[index].color = color;
         }
     }
 

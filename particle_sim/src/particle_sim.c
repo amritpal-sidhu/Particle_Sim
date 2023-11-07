@@ -22,8 +22,6 @@ static void busy_wait_ms(const float delay_in_ms);
 /* Global variables */
 log_t *log_handle;
 
-static struct shader_variables shader_vars;
-
 static particle_t *particles[P_COUNT+E_COUNT];
 
 
@@ -53,12 +51,12 @@ int main(void)
      * Populate particle vertex point array for drawing with OpenGL
      */
     #ifdef __DRAW_SPHERE
-    create_sphere_vertex_array(p_vertices, sphere_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, p_color);
-    create_sphere_vertex_array(e_vertices, sphere_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, e_color);
+    create_sphere_vertex_array(p_vertices, sphere_center, FAKE_NUCLEUS_RADIUS, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, p_color);
+    create_sphere_vertex_array(e_vertices, sphere_center, FAKE_NUCLEUS_RADIUS/8, CIRCLE_Y_SEGMENTS, CIRCLE_Z_SEGMENTS, e_color);
     #else
     const vector2d_t circle_center = {0};
-    create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADI, CIRCLE_Y_SEGMENTS, p_color);
-    create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADI/8, CIRCLE_Y_SEGMENTS, e_color);
+    create_circle_vertex_array(p_vertices, circle_center, FAKE_NUCLEUS_RADIUS, CIRCLE_Y_SEGMENTS, p_color);
+    create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADIUS/8, CIRCLE_Y_SEGMENTS, e_color);
     #endif
 
     for (int i = 0; i < NUM_SEGMENTS; ++i)
@@ -73,9 +71,9 @@ int main(void)
      * further complicating this simulation.  Something to work on in the future.
      */
     for (size_t i = 0; i < P_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_spin[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE, FAKE_NUCLEUS_RADIUS);
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_spin[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE);
+        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE, FAKE_NUCLEUS_RADIUS/8);
 
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {
@@ -99,9 +97,9 @@ int main(void)
         exit(1);
     }
 
-    shader_vars.mvp_location = glGetUniformLocation(program, "MVP");
-    shader_vars.vpos_location = glGetAttribLocation(program, "vPos");
-    shader_vars.vcol_location = glGetAttribLocation(program, "vCol");
+    draw_vars.shader_vars.mvp_location = glGetUniformLocation(program, "MVP");
+    draw_vars.shader_vars.vpos_location = glGetAttribLocation(program, "vPos");
+    draw_vars.shader_vars.vcol_location = glGetAttribLocation(program, "vCol");
 
     for (size_t i = 0; i < P_COUNT; ++i)
         vertex_buffer_init(&VBO[i], p_vertices, sizeof(p_vertices));
@@ -110,7 +108,7 @@ int main(void)
         vertex_buffer_init(&VBO[i], e_vertices, sizeof(e_vertices));
 
 
-    log__write(log_handle, LOG_DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos");
+    log__write(log_handle, LOG_DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos,pitch_momenta,roll_momenta,yaw_momenta,pitch,roll,yaw");
     render_loop(window, program, VBO);
 
     log__write(log_handle, LOG_STATUS, "Program terminated correctly.");
@@ -192,13 +190,16 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
-        for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
-            vertex_buffer_draw(VBO[i], shader_vars, draw_vars, particles[i]->pos);
+        for (size_t i = 0; i < P_COUNT+E_COUNT; ++i) {
+            draw_vars.pos = particles[i]->pos;
+            draw_vars.angle = particles[i]->orientation;
+            vertex_buffer_draw(VBO[i], draw_vars);
+        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        update_positions(particles, P_COUNT+E_COUNT, sample_period);
+        time_evolution(particles, P_COUNT+E_COUNT, sample_period);
 
         busy_wait_ms(10);
     }

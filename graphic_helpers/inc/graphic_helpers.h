@@ -44,6 +44,9 @@ struct draw_variables
     float ratio;
     int num_segments;
     double view_scalar;
+    struct shader_variables shader_vars;
+    vector3d_t pos;
+    vector3d_t angle;
 };
 
 
@@ -55,7 +58,7 @@ extern const color_t e_color;
 int shader_compile_and_link(GLuint *program);
 
 void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_size);
-void vertex_buffer_draw(const GLuint VBO, const struct shader_variables shader_vars, const struct draw_variables draw_vars, const vector3d_t pos);
+void vertex_buffer_draw(const GLuint VBO, const struct draw_variables draw_vars);
 
 void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const double r, const int num_segments, const color_t color);
 void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const double r, const int num_y_segments, const int num_z_segments, const color_t color);

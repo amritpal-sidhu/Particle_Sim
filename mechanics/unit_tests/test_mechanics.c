@@ -25,6 +25,12 @@ void tearDown(void)
 
 }
 
+/**
+ * The only reason I needed these tests
+ * was to understand the domain and range
+ * of the C trigonometry functions and how
+ * to properly use them.
+ */
 void test_componentize_force_2d(void)
 {
     const vector2d_t distance_vector[] = {
@@ -119,6 +125,49 @@ void test_componentize_force_3d(void)
         snprintf(msg_buf, sizeof(msg_buf), "Failure at %i loop iteration of k component", i);
         TEST_ASSERT_EQUAL_DOUBLE_MESSAGE(F_expected[i].k, F_actual.k, msg_buf);
 
+        resetTest();
+    }
+}
+
+void test_detect_collision(void)
+{
+    const particle_t particle_a[] = {
+        {.pos = {0, 0, 0}, .radius = 0.1},
+        {.pos = {0, 0, 0}, .radius = 0.1},
+        {.pos = {0.5, 0.3, 0}, .radius = 0.1/8},
+        {.pos = {0.3, 0.5, 0}, .radius = 0.1/8},
+        {.pos = {0.3, 0.5, 0}, .radius = 0.1/8},
+        {.pos = {0.5, 0.3, 0}, .radius = 0.1/8},
+        {.pos = {0, 0, 0}, .radius = 0.1},
+    };
+
+    const particle_t particle_b[] = {
+        {.pos = {0.3, 0.5, 0}, .radius = 0.1/8},
+        {.pos = {0.5, 0.3, 0}, .radius = 0.1/8},
+        {.pos = {0, 0, 0}, .radius = 0.1},
+        {.pos = {0, 0, 0}, .radius = 0.1},
+        {.pos = {0.5, 0.3, 0}, .radius = 0.1/8},
+        {.pos = {0.3, 0.5, 0}, .radius = 0.1/8},
+        {.pos = {0.1, 0.05, 0}, .radius = 0.1/8},
+    };
+
+    const int expected_values[] = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+    };
+
+    const unsigned int test_count = sizeof(expected_values)/sizeof(int);
+    char msg_buf[STR_BUF_SIZE];
+
+    for (unsigned int i = 0; i < test_count; ++i) {
+
+        snprintf(msg_buf, sizeof(msg_buf), "Failure at %i loop iteration", i);
+        TEST_ASSERT_EQUAL_MESSAGE(expected_values[i], detect_collision(&particle_a[i], &particle_b[i]), msg_buf);
         resetTest();
     }
 }

@@ -35,7 +35,7 @@ static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
     {.i = 0, .j = 0, .k = 0},
 };
 
-static const vector3d_t initial_spin[P_COUNT+E_COUNT] = {
+static const vector3d_t initial_orientation[P_COUNT+E_COUNT] = {
     /* Positively charged */
     {.i = 0, .j = 0, .k = 0},
     /* Negatively charged */

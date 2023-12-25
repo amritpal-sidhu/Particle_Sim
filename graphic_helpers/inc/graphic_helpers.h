@@ -12,8 +12,8 @@
 
 #define PI                  3.14159265358979323846264338327950
 
-#define VERTEX_SHADER_FILEPATH      "shaders/vs.vert"
-#define FRAGMENT_SHADER_FILEPATH    "shaders/fs.frag"
+#define VERTEX_SHADER_FILEPATH      "shaders/vs.vert.glsl"
+#define FRAGMENT_SHADER_FILEPATH    "shaders/fs.frag.glsl"
 
 #define DEBUG_OUTPUT_FILEPATH       "debug_output.txt"
 

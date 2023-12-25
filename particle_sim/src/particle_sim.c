@@ -89,7 +89,7 @@ int main(void)
     glfwSetKeyCallback(window, key_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwMakeContextCurrent(window);
-    gladLoadGL();
+    gladLoadGL(glfwGetProcAddress);
     glfwSwapInterval(1);
     
     if (shader_compile_and_link(&program)) {

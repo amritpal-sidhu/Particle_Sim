@@ -12,15 +12,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE PATH "" FORCE)
 add_compile_definitions(POSIX UNICODE _UNICODE)
 
 # Options for GLFW
-set(GLFW_BUILD_SHARED_LIBRARY ON CACHE BOOL "" FORCE)
+set(GLFW_LIBRARY_TYPE SHARED CACHE STRING "" FORCE)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-
-# Options for GLAD
-set(GLAD_PROFILE "core" CACHE STRING "" FORCE)
-set(GLAD_API "gl=4.6" CACHE STRING "" FORCE)
-set(GLAD_REPRODUCIBLE ON CACHE BOOL "" FORCE)
 
 # Options for C-Utilities
 set (SKIP_BINARY_TREES_LIB ON CACHE BOOL "" FORCE)
@@ -31,7 +26,8 @@ add_subdirectory(Third-Party/glfw)
 target_compile_definitions(glfw PRIVATE GLFW_USE_CONFIG_H)
 target_include_directories(glfw PRIVATE Third-Party)
 
-add_subdirectory(Third-Party/glad)
+add_subdirectory(Third-Party/glad/cmake)
+glad_add_library(glad_gl_core_46 REPRODUCIBLE LOCATION ${CMAKE_BINARY_DIR}/Third-Party/glad_gl_core_46 API gl:core=4.6)
 
 add_subdirectory(Third-Party/Unity)
 target_compile_definitions(unity PUBLIC UNITY_INCLUDE_CONFIG_H)

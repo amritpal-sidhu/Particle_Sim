@@ -1,5 +1,7 @@
 #pragma once
 
+#define GLFW_INCLUDE_NONE
+
 #include <stdio.h>
 
 #include <glad/gl.h>

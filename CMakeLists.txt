@@ -27,8 +27,6 @@ set(SKIP_LINKED_LISTS_LIB ON CACHE BOOL "" FORCE)
 
 
 add_subdirectory(Third-Party/glfw)
-target_compile_definitions(glfw PRIVATE GLFW_USE_CONFIG_H)
-target_include_directories(glfw PRIVATE Third-Party)
 
 add_subdirectory(Third-Party/glad/cmake)
 set(TARGET_GLAD_LIB glad_gl_core_46)

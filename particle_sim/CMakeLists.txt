@@ -11,13 +11,13 @@ add_compile_options(
     -Wstrict-prototypes
 )
 
-include_directories(inc
-                    ${UNITY_DIR}/src
-                    ${GLFW_DIR}/include
-                    ${GLFW_DIR}/src
-                    ${GLAD_INCLUDE_DIRS})
-
 
 add_executable(${MAIN} WIN32)
 target_sources(${MAIN} PRIVATE ${LOCAL_SOURCES} "${GLFW_DIR}/deps/linmath.h")
 target_link_libraries(${MAIN} PRIVATE vector log mechanics graphic_helpers)
+target_include_directories(${MAIN} PUBLIC
+                                    inc
+                                    "${UNITY_DIR}/src"
+                                    "${GLFW_DIR}/include"
+                                    "${GLFW_DIR}/src"
+                                    "${GLAD_INCLUDE_DIRS}")

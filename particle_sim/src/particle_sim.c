@@ -7,9 +7,10 @@
 #include "particle.h"
 #include "mechanics.h"
 #include "log.h"
+#include "common.h"
 
 
-static void pre_exit_calls(void);
+static void clean_program(void);
 
 static void error_callback(int error, const char *description);
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
@@ -42,8 +43,10 @@ int main(void)
     GLuint VBO[P_COUNT+E_COUNT], program;
 
 
-    if (!(log_handle=log__open(DEBUG_OUTPUT_FILEPATH, "w")))
-        return 1;
+    if (!(log_handle=log__open(DEBUG_OUTPUT_FILEPATH, "w"))) {
+        fprintf(stderr, "%s:%u: log__open() failed\n", __FILE__, __LINE__);
+        exit(EXIT_FAILURE);
+    }
 
     log__write(log_handle, LOG_STATUS, "Log file opened.");
 
@@ -60,7 +63,7 @@ int main(void)
     #endif
 
     for (int i = 0; i < NUM_SEGMENTS; ++i)
-        log__write(log_handle, LOG_INFO, "p_vertex[%i] = <%.3f,%.3f,%.3f>", i, p_vertices[i].pos.i, p_vertices[i].pos.j, p_vertices[i].pos.k);
+        log__write(log_handle, LOG_DATA, "p_vertex[%i] = <%.3f,%.3f,%.3f>", i, p_vertices[i].pos.i, p_vertices[i].pos.j, p_vertices[i].pos.k);
 
     /**
      * Creation of particle struct
@@ -76,26 +79,30 @@ int main(void)
         particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE, FAKE_NUCLEUS_RADIUS/8);
 
     glfwSetErrorCallback(error_callback);
-    if (!glfwInit()) {
-        pre_exit_calls();
-        return 1;
-    }
-
+    ERROR_CHECK(!glfwInit(), exit(EXIT_FAILURE), log_handle, LOG_ERROR, "glfwInit() failed");
+ 
+    
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     GLFWwindow *window = glfwCreateWindow(initial_window_width, initial_window_height, "Particle Sim", NULL, NULL);
-    if (!window) {
-        pre_exit_calls();
-        return 1;
-    }
+    ERROR_CHECK(!window, exit(EXIT_FAILURE), log_handle, LOG_ERROR, "glfwCreateWindow() failed");
+    
     glfwSetKeyCallback(window, key_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwMakeContextCurrent(window);
-    gladLoadGL(glfwGetProcAddress);
+    int version = gladLoadGL(glfwGetProcAddress);
     glfwSwapInterval(1);
     
-    if (shader_compile_and_link(&program)) {
-        pre_exit_calls();
-        exit(1);
-    }
+
+    ERROR_CHECK(!version, exit(EXIT_FAILURE), log_handle, LOG_ERROR, "gladLoadGL() failed");
+    log__write(log_handle, LOG_INFO, "Loaded GLAD Version: %u.%u", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+    log__write(log_handle, LOG_INFO, "GLFW Version: %u.%u", GLFW_VERSION_MAJOR, GLFW_VERSION_MINOR);
+
+
+    // ERROR_CHECK(!glGetString(GL_VERSION), exit(EXIT_FAILURE), log_handle, LOG_ERROR, "glGetString() failed");
+    // log__write(log_handle, LOG_INFO, "GL_VERSION: %s", *glGetString(GL_VERSION));
+    
+    ERROR_CHECK(shader_compile_and_link(&program), exit(EXIT_FAILURE), log_handle, LOG_ERROR, "shader_compile_and_link() failed");
 
     draw_vars.shader_vars.mvp_location = glGetUniformLocation(program, "MVP");
     draw_vars.shader_vars.vpos_location = glGetAttribLocation(program, "vPos");
@@ -114,14 +121,14 @@ int main(void)
     log__write(log_handle, LOG_STATUS, "Program terminated correctly.");
 
     glfwDestroyWindow(window);
-    pre_exit_calls();
+    clean_program();
 
     return 0;
 }
 
 
 /* Local function definitions */
-static void pre_exit_calls(void)
+static void clean_program(void)
 {
     glfwTerminate();
     log__close(log_handle);

@@ -17,6 +17,7 @@ target_sources(${MAIN} PRIVATE ${LOCAL_SOURCES} "${GLFW_DIR}/deps/linmath.h")
 target_link_libraries(${MAIN} PRIVATE vector log mechanics graphic_helpers)
 target_include_directories(${MAIN} PUBLIC
                                     inc
+                                    "${CMAKE_SOURCE_DIR}/inc"
                                     "${UNITY_DIR}/src"
                                     "${GLFW_DIR}/include"
                                     "${GLFW_DIR}/src"

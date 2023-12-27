@@ -40,7 +40,7 @@ int main(void)
     struct vertex p_vertices[NUM_SEGMENTS];
     struct vertex e_vertices[NUM_SEGMENTS];
     
-    GLuint VBO[P_COUNT+E_COUNT], program;
+    GLuint VBO[P_COUNT+E_COUNT], VAO, program;
 
 
     if (!(log_handle=log__open(DEBUG_OUTPUT_FILEPATH, "w"))) {
@@ -78,10 +78,10 @@ int main(void)
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
         particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE, FAKE_NUCLEUS_RADIUS/8);
 
+
     glfwSetErrorCallback(error_callback);
     ERROR_CHECK(!glfwInit(), exit(EXIT_FAILURE), log_handle, LOG_ERROR, "glfwInit() failed");
  
-    
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     GLFWwindow *window = glfwCreateWindow(initial_window_width, initial_window_height, "Particle Sim", NULL, NULL);
@@ -99,14 +99,13 @@ int main(void)
     log__write(log_handle, LOG_INFO, "GLFW Version: %u.%u", GLFW_VERSION_MAJOR, GLFW_VERSION_MINOR);
 
 
-    // ERROR_CHECK(!glGetString(GL_VERSION), exit(EXIT_FAILURE), log_handle, LOG_ERROR, "glGetString() failed");
-    // log__write(log_handle, LOG_INFO, "GL_VERSION: %s", *glGetString(GL_VERSION));
-    
     ERROR_CHECK(shader_compile_and_link(&program), exit(EXIT_FAILURE), log_handle, LOG_ERROR, "shader_compile_and_link() failed");
 
     draw_vars.shader_vars.mvp_location = glGetUniformLocation(program, "MVP");
     draw_vars.shader_vars.vpos_location = glGetAttribLocation(program, "vPos");
     draw_vars.shader_vars.vcol_location = glGetAttribLocation(program, "vCol");
+
+    vertex_array_object_init(&VAO);
 
     for (size_t i = 0; i < P_COUNT; ++i)
         vertex_buffer_init(&VBO[i], p_vertices, sizeof(p_vertices));

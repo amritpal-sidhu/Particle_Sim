@@ -72,6 +72,12 @@ int shader_compile_and_link(GLuint *program)
     return 0;
 }
 
+void vertex_array_object_init(GLuint *VAO)
+{
+    glGenVertexArrays(1, VAO);
+    glBindVertexArray(*VAO);
+}
+
 void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_size)
 {
     glGenBuffers(1, VBO);

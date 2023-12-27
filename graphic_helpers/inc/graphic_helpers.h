@@ -59,6 +59,8 @@ extern const color_t e_color;
 
 int shader_compile_and_link(GLuint *program);
 
+void vertex_array_object_init(GLuint *VAO);
+
 void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_size);
 void vertex_buffer_draw(const GLuint VBO, const struct draw_variables draw_vars);
 

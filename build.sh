@@ -1,35 +1,63 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 
 set -e
 
 
-build_type="Debug"
-source_dir="${PWD}"
-build_dir="${PWD}/_build"
-generator="MinGW Makefiles"
-options=("-D CMAKE_BUILD_TYPE=$build_type")
+declare -r SRC_DIR="$PWD"
+declare -r BUILD_DIR="$SRC_DIR/_build"
+declare -r GENERATOR="Ninja"
+declare -r BUILD_TYPE="Debug"
+declare -ar CMAKE_CONFIG_ARGS=( \
+    -S "$SRC_DIR" \
+    -B "$BUILD_DIR" \
+    -G "$GENERATOR" \
+    -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+)
 
-case $1 in
 
-"")
-    cmake -G "$generator" -S $source_dir -B $build_dir ${options[*]}
-    cmake --build $build_dir
-;;
-
-"-c"|"--clean")  cmake --build $build_dir --target clean
-;;
-
-"-d"|"--delete")  rm -rf $build_dir
-;;
-
-"-h"|"--help"|*)
-    echo "Usage: ./build.sh [options]"
+print_usage()
+{
+    echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    echo "  When called with no options cmake will configure and build the project"
-    echo "  -h, --help         print this message"
-    echo "  -c, --clean        clean the cmake project"
-    echo "  -d, --delete       remove the build directory"
-;;
+    echo "  When called without options cmake will configure and build the project"
+    echo "  -h, --help              print this message"
+    echo "  -b, --build [target]    configure and build the project, optionally can specify target"
+    echo "  -f, --fresh             remove existing cache files"
+    echo "  -c, --clean [target]    clean the cmake project, optionally can specify target"
+    echo "  -d, --delete            remove the build directory"
+    exit
+}
 
-esac
+
+while true; do
+
+    case "$1" in
+
+        ""|"-b"|"--build")
+            cmake "${CMAKE_CONFIG_ARGS[@]}"
+            cmake --build "$BUILD_DIR"
+            ;;
+
+        "-f"|"--fresh")
+            cmake "${CMAKE_CONFIG_ARGS[@]}" --fresh
+            ;;
+
+        "-c"|"--clean") 
+            cmake --build "$BUILD_DIR" --target clean
+            ;;
+
+        "-d"|"--delete") 
+            rm -rf "$BUILD_DIR"
+            ;;
+
+        "-h"|"--help"|*)
+            print_usage
+            ;;
+    esac
+    
+    [[ $# -eq 0 ]] && break
+    shift
+
+done

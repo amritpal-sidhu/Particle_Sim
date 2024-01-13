@@ -51,3 +51,15 @@ macro(run_tests_macro)
     endforeach()
 
 endmacro()
+
+
+function(prepend_local_sources)
+    block(SCOPE_FOR VARIABLES)
+        cmake_policy(PUSH)
+        cmake_policy(SET CMP0140 NEW)
+        set(LOCAL_SOURCES "${ARGN}")
+        list(TRANSFORM LOCAL_SOURCES PREPEND "${CMAKE_CURRENT_LIST_DIR}/src/")
+        cmake_policy(POP)
+        return(PROPAGATE LOCAL_SOURCES)
+    endblock()
+endfunction()

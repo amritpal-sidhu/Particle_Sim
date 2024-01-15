@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 
 
-set -e
-
-
 declare -r SRC_DIR="$PWD"
 declare -r BUILD_DIR="$SRC_DIR/_build"
 declare -r GENERATOR="Ninja"
@@ -30,14 +27,24 @@ print_usage()
     exit
 }
 
+get_target()
+{
+    local -r optglob='@(-h|--help|-b|--build|-f|--fresh|-c|--clean|-d|--delete)'
+    unset -v TGT
 
-while true; do
+    [[ $# -eq 0 ]] && return
+    [[ "$1" == $optglob ]] || TGT="--target $1"
+}
+
+
+while
 
     case "$1" in
 
         ""|"-b"|"--build")
+            get_target ${2:-}; declare -I TGT
             cmake "${CMAKE_CONFIG_ARGS[@]}"
-            cmake --build "$BUILD_DIR"
+            cmake --build "$BUILD_DIR" ${TGT:-}
             ;;
 
         "-f"|"--fresh")
@@ -45,7 +52,8 @@ while true; do
             ;;
 
         "-c"|"--clean") 
-            cmake --build "$BUILD_DIR" --target clean
+            get_target ${2:-}; declare -I TGT
+            cmake --build "$BUILD_DIR" ${TGT:-} -- -t clean
             ;;
 
         "-d"|"--delete") 
@@ -56,8 +64,7 @@ while true; do
             print_usage
             ;;
     esac
-    
-    [[ $# -eq 0 ]] && break
-    shift
 
-done
+    shift ${TGT:+2}
+
+do [[ $# -ne 0 ]]; done

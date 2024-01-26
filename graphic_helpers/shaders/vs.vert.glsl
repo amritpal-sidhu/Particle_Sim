@@ -1,18 +1,12 @@
-// Note to self regarding qualifiers:
-//      uniform is per primative
-//      attribute is per vertex
-//      varying is per fragment, .vert to .frag
+#version 460
 
-// Source: https://stackoverflow.com/questions/17537879/in-webgl-what-are-the-differences-between-an-attribute-a-uniform-and-a-varying
-
-// #version 110
+in dvec3 position;
+in vec3 color;
+out vec3 vertex_color;
 uniform mat4 MVP;
-attribute vec3 vCol;
-attribute vec3 vPos;
-varying vec3 color;
+
 void main()
 {
-    gl_Position = MVP * vec4(vPos, 1.0);
-    color = vCol;
+    gl_Position = MVP * vec4(position, 1.0);
+    vertex_color = color;
 }
-

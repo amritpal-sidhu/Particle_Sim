@@ -18,11 +18,10 @@ int shader_compile_and_link(GLuint *program)
 {
     FILE *vs_fp = fopen(VERTEX_SHADER_FILEPATH, "r");
     FILE *fs_fp = fopen(FRAGMENT_SHADER_FILEPATH, "r");
-    char *vs_text;
-    char *fs_text;
-    size_t rc;
-
+    char *vs_text, *fs_text;
     GLuint vertex_shader, fragment_shader;
+    int status;
+    size_t rc;
 
 
     if (!vs_fp || !fs_fp) {
@@ -32,8 +31,8 @@ int shader_compile_and_link(GLuint *program)
     const size_t vs_size = get_file_size(vs_fp);
     const size_t fs_size = get_file_size(fs_fp);
 
-    vs_text = malloc(sizeof(char)*vs_size);
-    fs_text = malloc(sizeof(char)*fs_size);
+    vs_text = malloc(sizeof(char)*vs_size+1);
+    fs_text = malloc(sizeof(char)*fs_size+1);
 
     if (!vs_text || !fs_text) {
         return 1;
@@ -44,11 +43,14 @@ int shader_compile_and_link(GLuint *program)
         log__write(log_handle, LOG_WARNING, "VERTEX SHADER READ: read %i bytes\n\n%s\n", rc, vs_text);
         return 1;
     }
+    vs_text[sizeof(char)*vs_size] = '\0';
+    
     rc = fread(fs_text, sizeof(char), fs_size, fs_fp);
     if (rc != fs_size) {
         log__write(log_handle, LOG_WARNING, "FRAGMENT SHADER READ: read %i bytes\n\n%s\n", rc, fs_text);
         return 1;
     }
+    fs_text[sizeof(char)*fs_size] = '\0';
 
     fclose(vs_fp);
     fclose(fs_fp);
@@ -56,26 +58,78 @@ int shader_compile_and_link(GLuint *program)
     vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertex_shader, 1, (const GLchar * const*)&vs_text, NULL);
     glCompileShader(vertex_shader);
+    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &status);
+    if (!status) {
+        char info[512];
+        glGetShaderInfoLog(vertex_shader, sizeof(info), NULL, info);
+        log__write(log_handle, LOG_ERROR, "%s", info);
+        log__write(log_handle, LOG_ERROR, "SHADER TEXT DUMP (%i): %s", vs_size, vs_text);
+        return 1;
+    }
  
     fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragment_shader, 1, (const GLchar * const*)&fs_text, NULL);
     glCompileShader(fragment_shader);
+    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &status);
+    if (!status) {
+        char info[512];
+        glGetShaderInfoLog(fragment_shader, sizeof(info), NULL, info);
+        log__write(log_handle, LOG_ERROR, "%s", info);
+        return 1;
+    }
  
     *program = glCreateProgram();
     glAttachShader(*program, vertex_shader);
     glAttachShader(*program, fragment_shader);
+
+    /* bind data and attributes */
+    glBindAttribLocation(*program, VERT_POS_LOC, VERT_POS_VAR);
+    glBindAttribLocation(*program, VERT_COL_LOC, VERT_COL_VAR);
+    
     glLinkProgram(*program);
+    glGetProgramiv(*program, GL_LINK_STATUS, &status);
+    if (!status) {
+        char info[512];
+        glGetShaderInfoLog(fragment_shader, sizeof(info), NULL, info);
+        log__write(log_handle, LOG_ERROR, "%s", info);
+        return 1;
+    }
 
     free(vs_text);
     free(fs_text);
+    glDetachShader(*program, vertex_shader);
+    glDeleteShader(vertex_shader);
+    glDetachShader(*program, fragment_shader);
+    glDeleteShader(fragment_shader);
 
     return 0;
 }
 
-void vertex_array_object_init(GLuint *VAO)
+void enable_vertex_attributes(void)
 {
-    glGenVertexArrays(1, VAO);
-    glBindVertexArray(*VAO);
+    const GLsizei stride = sizeof(struct vertex);
+    const GLintptr position_offset = 0;
+    const GLintptr color_offset = sizeof(vector3d_t);
+
+    glEnableVertexAttribArray(VERT_POS_LOC);
+    glEnableVertexAttribArray(VERT_COL_LOC);
+
+    glVertexAttribLPointer(VERT_POS_LOC, 3, GL_DOUBLE, stride, (GLvoid*)position_offset);
+    glVertexAttribPointer(VERT_COL_LOC, 3, GL_FLOAT, GL_FALSE, stride, (GLvoid*)color_offset);
+}
+
+void vertex_array_object_init(GLuint *VAO, GLuint *VBO, const size_t VBO_count)
+{
+    glGenVertexArrays(VBO_count, VAO);
+
+    for (size_t i = 0; i < VBO_count; ++i)
+    {
+        glBindVertexArray(VAO[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO[i]);
+        enable_vertex_attributes();
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
 }
 
 void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_size)
@@ -83,9 +137,10 @@ void vertex_buffer_init(GLuint *VBO, const struct vertex *vertices, const int v_
     glGenBuffers(1, VBO);
     glBindBuffer(GL_ARRAY_BUFFER, *VBO);
     glBufferData(GL_ARRAY_BUFFER, v_size, vertices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void vertex_buffer_draw(const GLuint VBO, const struct draw_variables draw_vars)
+void vertex_buffer_draw(const GLuint program, const struct draw_variables draw_vars)
 {
     mat4x4 m, p, mvp;
 
@@ -98,18 +153,7 @@ void vertex_buffer_draw(const GLuint VBO, const struct draw_variables draw_vars)
     mat4x4_ortho(p, -draw_vars.ratio, draw_vars.ratio, -1.f, 1.f, 1.f, -1.f);
     mat4x4_mul(mvp, p, m);
 
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    /**
-     * These attributes need to be reassociated with the currently bound vertex buffer object for the shader
-     * to properly set the variables.
-     */
-    glEnableVertexAttribArray((GLuint)draw_vars.shader_vars.vpos_location);
-    glVertexAttribPointer((GLuint)draw_vars.shader_vars.vpos_location, 3, GL_DOUBLE, GL_FALSE, sizeof(struct vertex), (void*) 0);
-    glEnableVertexAttribArray((GLuint)draw_vars.shader_vars.vcol_location);
-    glVertexAttribPointer((GLuint)draw_vars.shader_vars.vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*) (sizeof(double) * 3));
-
-    glUniformMatrix4fv(draw_vars.shader_vars.mvp_location, 1, GL_FALSE, (const GLfloat*)mvp);
+    glUniformMatrix4fv(glGetUniformLocation(program, UNIFORM_MVP_VAR), 1, GL_FALSE, (const GLfloat *)mvp);
     glDrawArrays(GL_TRIANGLE_FAN, 0, draw_vars.num_segments);
 }
 

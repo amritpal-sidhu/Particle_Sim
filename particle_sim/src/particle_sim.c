@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <unistd.h>
+
 #include "particle_sim.h"
 #include "graphic_helpers.h"
 #include "particle.h"
@@ -10,14 +12,16 @@
 #include "common.h"
 
 
-static void clean_program(void);
+static void clean_program(GLFWwindow *window, GLuint program, GLuint *VBO, GLuint *VAO, size_t count);
 
+#ifdef DEBUG
+static void debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam);
+#endif
 static void error_callback(int error, const char *description);
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
-static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO);
-static void busy_wait_ms(const float delay_in_ms);
+static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO, GLuint *VAO);
 
 
 /* Global variables */
@@ -40,15 +44,14 @@ int main(void)
     struct vertex p_vertices[NUM_SEGMENTS];
     struct vertex e_vertices[NUM_SEGMENTS];
     
-    GLuint VBO[P_COUNT+E_COUNT], VAO, program;
+    GLuint VBO[P_COUNT+E_COUNT], VAO[P_COUNT+E_COUNT];
+    GLuint program;
 
 
     if (!(log_handle=log__open(DEBUG_OUTPUT_FILEPATH, "w"))) {
         fprintf(stderr, "%s:%u: log__open() failed\n", __FILE__, __LINE__);
         exit(EXIT_FAILURE);
     }
-
-    log__write(log_handle, LOG_STATUS, "Log file opened.");
 
     /**
      * Populate particle vertex point array for drawing with OpenGL
@@ -62,8 +65,10 @@ int main(void)
     create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADIUS/8, CIRCLE_Y_SEGMENTS, e_color);
     #endif
 
+    #ifdef LOG_DATA
     for (int i = 0; i < NUM_SEGMENTS; ++i)
         log__write(log_handle, LOG_DATA, "p_vertex[%i] = <%.3f,%.3f,%.3f>", i, p_vertices[i].pos.i, p_vertices[i].pos.j, p_vertices[i].pos.k);
+    #endif
 
     /**
      * Creation of particle struct
@@ -84,28 +89,48 @@ int main(void)
  
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    #ifdef DEBUG
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+    #endif
     GLFWwindow *window = glfwCreateWindow(initial_window_width, initial_window_height, "Particle Sim", NULL, NULL);
     ERROR_CHECK(!window, exit(EXIT_FAILURE), log_handle, LOG_ERROR, "glfwCreateWindow() failed");
-    
-    glfwSetKeyCallback(window, key_callback);
-    glfwSetScrollCallback(window, scroll_callback);
+
+    const GLFWvidmode *video_mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    ERROR_CHECK(!video_mode, exit(EXIT_FAILURE), log_handle, LOG_ERROR, "glfwGetVideoMode() failed");
+    glfwSetWindowPos(window, (video_mode->width-initial_window_width)/2, (video_mode->height-initial_window_height)/2);
     glfwMakeContextCurrent(window);
+    
     int version = gladLoadGL(glfwGetProcAddress);
-    glfwSwapInterval(1);
+    ERROR_CHECK(!version, exit(EXIT_FAILURE), log_handle, LOG_ERROR, "gladLoadGL() failed");
+    int major, minor, rev;
+    glfwGetVersion(&major, &minor, &rev);
+    log__write(log_handle, LOG_INFO, "Runtime GLFW Version: %i.%i.%i", major, minor, rev);
+    log__write(log_handle, LOG_INFO, "Compile GLFW Version String: %s", glfwGetVersionString());
+    log__write(log_handle, LOG_INFO, "Loaded OpenGL Version: %u.%u", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+    log__write(log_handle, LOG_INFO, "GL_VERSION: %s", glGetString(GL_VERSION));
+    log__write(log_handle, LOG_INFO, "GL_VENDOR: %s", glGetString(GL_VENDOR));
+    log__write(log_handle, LOG_INFO, "GL_RENDERER: %s", glGetString(GL_RENDERER));
     
 
-    ERROR_CHECK(!version, exit(EXIT_FAILURE), log_handle, LOG_ERROR, "gladLoadGL() failed");
-    log__write(log_handle, LOG_INFO, "Loaded GLAD Version: %u.%u", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
-    log__write(log_handle, LOG_INFO, "GLFW Version: %u.%u", GLFW_VERSION_MAJOR, GLFW_VERSION_MINOR);
+    #ifdef DEBUG
+    GLint flags;
+    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(debug_message_callback, NULL);
+        log__write(log_handle, LOG_INFO, "Registered DebugMessageCallback");
+    } else
+        log__write(log_handle, LOG_ERROR, "Failed to create debug context");
+    #endif
+
+    glfwSetKeyCallback(window, key_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+    glfwSwapInterval(1);
 
 
     ERROR_CHECK(shader_compile_and_link(&program), exit(EXIT_FAILURE), log_handle, LOG_ERROR, "shader_compile_and_link() failed");
-
-    draw_vars.shader_vars.mvp_location = glGetUniformLocation(program, "MVP");
-    draw_vars.shader_vars.vpos_location = glGetAttribLocation(program, "vPos");
-    draw_vars.shader_vars.vcol_location = glGetAttribLocation(program, "vCol");
-
-    vertex_array_object_init(&VAO);
 
     for (size_t i = 0; i < P_COUNT; ++i)
         vertex_buffer_init(&VBO[i], p_vertices, sizeof(p_vertices));
@@ -113,29 +138,81 @@ int main(void)
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
         vertex_buffer_init(&VBO[i], e_vertices, sizeof(e_vertices));
 
+    vertex_array_object_init(VAO, VBO, P_COUNT+E_COUNT);
 
+
+    #ifdef LOG_DATA
     log__write(log_handle, LOG_DATA, "particle_id,mass,charge,x_momenta,y_momenta,z_momenta,x_pos,y_pos,z_pos,pitch_momenta,roll_momenta,yaw_momenta,pitch,roll,yaw");
-    render_loop(window, program, VBO);
+    #endif
+ 
+    render_loop(window, program, VBO, VAO);
 
-    log__write(log_handle, LOG_STATUS, "Program terminated correctly.");
-
-    glfwDestroyWindow(window);
-    clean_program();
+    clean_program(window, program, VBO, VAO, P_COUNT+E_COUNT);
 
     return 0;
 }
 
 
 /* Local function definitions */
-static void clean_program(void)
+static void clean_program(GLFWwindow *window, GLuint program, GLuint *VBO, GLuint *VAO, size_t count)
 {
+    glfwDestroyWindow(window);
     glfwTerminate();
-    log__close(log_handle);
-    log__delete(log_handle);
+
+    glDeleteProgram(program);
+    glDeleteBuffers(count, VBO);
+    glDeleteBuffers(count, VAO);
 
     for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
         particle__delete(particles[i]);
+
+    log__write(log_handle, LOG_STATUS, "Program terminated correctly.");
+    log__close(log_handle);
+    log__delete(log_handle);
 }
+
+#ifdef DEBUG
+static void debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
+{
+    char source_string[48], type_string[48], severity_string[48];
+
+    switch (source) {
+        case GL_DEBUG_SOURCE_API: strncpy(source_string, "GL_DEBUG_SOURCE_API", sizeof(source_string)); break;
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM: strncpy(source_string, "GL_DEBUG_SOURCE_WINDOW_SYSTEM", sizeof(source_string)); break;
+        case GL_DEBUG_SOURCE_SHADER_COMPILER: strncpy(source_string, "GL_DEBUG_SOURCE_SHADER_COMPILER", sizeof(source_string)); break;
+        case GL_DEBUG_SOURCE_THIRD_PARTY: strncpy(source_string, "GL_DEBUG_SOURCE_THIRD_PARTY", sizeof(source_string)); break;
+        case GL_DEBUG_SOURCE_APPLICATION: strncpy(source_string, "GL_DEBUG_SOURCE_APPLICATION", sizeof(source_string)); break;
+        case GL_DEBUG_SOURCE_OTHER: strncpy(source_string, "GL_DEBUG_SOURCE_OTHER", sizeof(source_string)); break;
+        case GL_DONT_CARE: strncpy(source_string, "GL_DONT_CARE", sizeof(source_string)); break;
+        default: strncpy(source_string, "OTHER_SOURCE", sizeof(source_string)); break;
+    }
+
+    switch (type) {
+        case GL_DEBUG_TYPE_ERROR: strncpy(type_string, "GL_DEBUG_TYPE_ERROR", sizeof(type_string)); break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: strncpy(type_string, "GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR", sizeof(type_string)); break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: strncpy(type_string, "GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR", sizeof(type_string)); break;
+        case GL_DEBUG_TYPE_PORTABILITY: strncpy(type_string, "GL_DEBUG_TYPE_PORTABILITY", sizeof(type_string)); break;
+        case GL_DEBUG_TYPE_PERFORMANCE: strncpy(type_string, "GL_DEBUG_TYPE_PERFORMANCE", sizeof(type_string)); break;
+        case GL_DEBUG_TYPE_MARKER: strncpy(type_string, "GL_DEBUG_TYPE_MARKER", sizeof(type_string)); break;
+        case GL_DEBUG_TYPE_PUSH_GROUP: strncpy(type_string, "GL_DEBUG_TYPE_PUSH_GROUP", sizeof(type_string)); break;
+        case GL_DEBUG_TYPE_POP_GROUP: strncpy(type_string, "GL_DEBUG_TYPE_POP_GROUP", sizeof(type_string)); break;
+        case GL_DEBUG_TYPE_OTHER: strncpy(type_string, "GL_DEBUG_TYPE_OTHER", sizeof(type_string)); break;
+        case GL_DONT_CARE: strncpy(type_string, "GL_DONT_CARE", sizeof(type_string)); break;
+        default: strncpy(type_string, "OTHER_TYPE", sizeof(type_string)); break;
+    }
+
+    switch (severity) {
+        case GL_DEBUG_SEVERITY_LOW: strncpy(severity_string, "GL_DEBUG_SEVERITY_LOW", sizeof(severity_string)); break;
+        case GL_DEBUG_SEVERITY_MEDIUM: strncpy(severity_string, "GL_DEBUG_SEVERITY_MEDIUM", sizeof(severity_string)); break;
+        case GL_DEBUG_SEVERITY_HIGH: strncpy(severity_string, "GL_DEBUG_SEVERITY_HIGH", sizeof(severity_string)); break;
+        case GL_DEBUG_SEVERITY_NOTIFICATION: strncpy(severity_string, "GL_DEBUG_SEVERITY_NOTIFICATION", sizeof(severity_string)); break;
+        case GL_DONT_CARE: strncpy(severity_string, "GL_DONT_CARE", sizeof(severity_string)); break;
+        default: strncpy(severity_string, "OTHER_SEVERITY", sizeof(severity_string)); break;
+    }
+
+    log__write(log_handle, LOG_DEBUG, "Source: %s, Type: %s, Severity: %s, ID: %u, Message: %s", source_string, type_string, severity_string, id, message);
+}
+#endif
 
 static void error_callback(int error, const char *description)
 {
@@ -179,15 +256,20 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
         draw_vars.view_scalar = upper_bound;
     else if (draw_vars.view_scalar < lower_bound)
         draw_vars.view_scalar = lower_bound;
-
-    // fprintf(debug_fp, "DEBUG VIEW MAGNIFICATION: view_scalar value = %E\n", view_scalar);
 }
 
-static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
+static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO, GLuint *VAO)
 {
+    static const double wait_time_usec = 10000.0;
+    static double loop_start_time;
+
+    glfwSetTime(0);
+
     while (!glfwWindowShouldClose(window)) {
         
         int width, height;
+
+        loop_start_time = glfwGetTime();
  
         glfwGetFramebufferSize(window, &width, &height);
         draw_vars.ratio = (float)width / height;
@@ -199,7 +281,8 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i) {
             draw_vars.pos = particles[i]->pos;
             draw_vars.angle = particles[i]->orientation;
-            vertex_buffer_draw(VBO[i], draw_vars);
+            glBindVertexArray(VAO[i]);
+            vertex_buffer_draw(program, draw_vars);
         }
 
         glfwSwapBuffers(window);
@@ -207,15 +290,8 @@ static void render_loop(GLFWwindow *window, const GLuint program, GLuint *VBO)
 
         time_evolution(particles, P_COUNT+E_COUNT, sample_period);
 
-        busy_wait_ms(10);
+        double elapsed_time_usec = 1E6*(glfwGetTime()-loop_start_time);
+        if (elapsed_time_usec < wait_time_usec)
+            usleep(wait_time_usec-elapsed_time_usec);
     }
-}
-
-static void busy_wait_ms(const float delay_in_ms)
-{
-    const float clocks_per_ms = (float)CLOCKS_PER_SEC / 1000;
-    const float start_tick = clocks_per_ms * clock();
-    const float end_tick = start_tick + (clocks_per_ms * delay_in_ms);
-
-    while (clocks_per_ms * clock() <= end_tick);
 }

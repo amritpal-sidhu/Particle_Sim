@@ -96,15 +96,19 @@ void time_evolution(particle_t **particles, const size_t particle_count, const d
             }
         }
 
+        #ifdef LOG_DATA
         log__write(log_handle, LOG_DATA, "%i,%E,%E,%E,%E,%E,%f,%f,%f,%E,%E,%E,%f,%f,%f",
         particles[this]->id, particles[this]->mass, particles[this]->charge, 
         particles[this]->momenta.i, particles[this]->momenta.j, particles[this]->momenta.k,
         particles[this]->pos.i, particles[this]->pos.j, particles[this]->pos.k,
         particles[this]->angular_momenta.i,particles[this]->angular_momenta.j,particles[this]->angular_momenta.k,
         particles[this]->orientation.i,particles[this]->orientation.j,particles[this]->orientation.k);
+        #endif
     }
 
+    #ifdef LOG_DATA
     log__write(log_handle, LOG_NONE, "");
+    #endif
 }
 
 int detect_collision(const particle_t *this, const particle_t *that)

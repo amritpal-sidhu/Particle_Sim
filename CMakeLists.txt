@@ -43,7 +43,7 @@ set(SKIP_BINARY_TREES_LIB ON CACHE BOOL "" FORCE)
 set(SKIP_LINKED_LISTS_LIB ON CACHE BOOL "" FORCE)
 
 
-add_compile_definitions(POSIX UNICODE _UNICODE)
+add_compile_definitions(POSIX UNICODE _UNICODE $<$<CONFIG:Debug>:DEBUG>)
 
 
 add_subdirectory(Third-Party/Unity)

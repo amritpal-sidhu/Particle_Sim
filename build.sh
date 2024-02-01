@@ -5,11 +5,13 @@ declare -r SRC_DIR="$PWD"
 declare -r BUILD_DIR="$SRC_DIR/_build"
 declare -r GENERATOR="Ninja"
 declare -r BUILD_TYPE="Debug"
+# declare -r TOOLCHAIN_FILE="$SRC_DIR/cmake/x86_64-w64-mingw32.cmake"
 declare -ar CMAKE_CONFIG_ARGS=( \
     -S "$SRC_DIR" \
     -B "$BUILD_DIR" \
     -G "$GENERATOR" \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+    # -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
 )
 
 
@@ -37,7 +39,7 @@ get_target()
 }
 
 
-while
+while [[ $# -ne 0 ]]; do
 
     case "$1" in
 
@@ -66,5 +68,4 @@ while
     esac
 
     shift ${TGT:+2}
-
-do [[ $# -ne 0 ]]; done
+done

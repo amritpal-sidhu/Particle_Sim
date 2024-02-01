@@ -1,12 +1,12 @@
-#version 460
+#version 460 core
 
-in dvec3 position;
-in vec3 color;
+layout(location = 0) in dvec3 in_pos;
+layout(location = 1) in vec3 in_color;
+layout(location = 2) uniform mat4x4 in_MVP;
 out vec3 vertex_color;
-uniform mat4 MVP;
 
 void main()
 {
-    gl_Position = MVP * vec4(position, 1.0);
-    vertex_color = color;
+    gl_Position = in_MVP * vec4(in_pos, 1.0);
+    vertex_color = in_color;
 }

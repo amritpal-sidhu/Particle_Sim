@@ -3,12 +3,21 @@
 
 #include <stdlib.h>
 
+#ifndef __FILE_NAME__
+    #include "libgen.h"
+    #define __FILE_NAME__ basename(__FILE__)
+#endif
+
 #include "log.h"
 
-#define ERROR_CHECK(error_cond, error_action, log_handle, log_level, message, ...) \
+
+
+extern log_t *log_handle;
+
+#define ERROR_CHECK(error_cond, error_action, log_level, message, ...) \
 do { \
 if (error_cond) { \
-    log__write(log_handle, log_level, "%s:%u: (%s) "message,__FILE__,__LINE__,#error_cond,##__VA_ARGS__); \
+    log__write(log_handle, log_level, "%s:%u: (%s) "message,__FILE_NAME__,__LINE__,#error_cond,##__VA_ARGS__); \
     error_action; \
 }} while(0)
 

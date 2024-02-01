@@ -43,6 +43,7 @@ macro(run_tests_macro)
             add_custom_command(TARGET test_runner POST_BUILD
                                WORKING_DIRECTORY  ${TEST_DIR}
                                COMMAND $<TARGET_FILE:test_runner>
+                               COMMAND rm -f $<TARGET_FILE:test_runner>
                                VERBATIM USES_TERMINAL)
         else()
             message(STATUS "No unit test for ${FILENAME} exists.")
@@ -54,12 +55,41 @@ endmacro()
 
 
 function(prepend_local_sources)
-    block(SCOPE_FOR VARIABLES)
-        cmake_policy(PUSH)
+    block(SCOPE_FOR VARIABLES POLICIES)
         cmake_policy(SET CMP0140 NEW)
         set(LOCAL_SOURCES "${ARGN}")
         list(TRANSFORM LOCAL_SOURCES PREPEND "${CMAKE_CURRENT_LIST_DIR}/src/")
-        cmake_policy(POP)
         return(PROPAGATE LOCAL_SOURCES)
+    endblock()
+endfunction()
+
+
+function(set_glad_vars)
+    block(SCOPE_FOR VARIABLES POLICIES)
+        cmake_policy(SET CMP0140 NEW)
+
+        set(GLAD_TARGET_API "${ARGN}")
+        list(LENGTH GLAD_TARGET_API LEN)
+        if (NOT ${LEN} EQUAL 3)
+            message(FATAL_ERROR "The list passed to set_glad_vars() is not of size 3")
+        endif()
+
+        list(GET GLAD_TARGET_API 0 TARGET_GL_MAJOR)
+        list(GET GLAD_TARGET_API 1 TARGET_GL_MINOR)
+        list(GET GLAD_TARGET_API 2 TARGET_GL_PROFILE)
+        if (${TARGET_GL_MAJOR} LESS 1 OR ${TARGET_GL_MAJOR} GREATER 4)
+            message(FATAL_ERROR "GLAD major target is out of range [1:4]")
+        elseif (${TARGET_GL_MINOR} LESS 0 OR ${TARGET_GL_MINOR} GREATER 9)
+            message(FATAL_ERROR "GLAD minor target is out of range [0:9]")
+        elseif (NOT ${TARGET_GL_PROFILE} STREQUAL "core" AND NOT ${TARGET_GL_PROFILE} STREQUAL "compatibility")
+            message(FATAL_ERROR "GLAD profile is not core or compatibility")
+        endif()
+        
+        set(GLAD_LIB glad_gl_${TARGET_GL_PROFILE}_${TARGET_GL_MAJOR}${TARGET_GL_MINOR})
+        set(GLAD_GL_API gl:${TARGET_GL_PROFILE}=${TARGET_GL_MAJOR}.${TARGET_GL_MINOR})
+        set(GLAD_OUT_DIR "${CMAKE_BINARY_DIR}/Third-Party/glad/${GLAD_LIB}")
+        set(GLAD_LIB_OPTS ALIAS HEADERONLY INTERFACE LOCATION "${GLAD_OUT_DIR}" API ${GLAD_GL_API})
+
+        return(PROPAGATE GLAD_LIB GLAD_LIB_OPTS TARGET_GL_MAJOR TARGET_GL_MINOR TARGET_GL_PROFILE)
     endblock()
 endfunction()

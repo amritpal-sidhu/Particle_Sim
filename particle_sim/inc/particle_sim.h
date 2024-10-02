@@ -1,10 +1,10 @@
 #pragma once
 
+#include "common.h"
 #include "graphic_helpers.h"
 #include "particle.h"
 #include "mechanics.h"
 #include "vector.h"
-#include "common.h"
 
 
 #define DRAW_SPHERE

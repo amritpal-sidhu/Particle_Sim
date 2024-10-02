@@ -2,15 +2,10 @@
 
 #include <stdio.h>
 
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-
 #include "linmath.h"
 
 #include "vector.h"
-
+#include "common.h"
 
 #define PI                  3.14159265358979323846264338327950
 

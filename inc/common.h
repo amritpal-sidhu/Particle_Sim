@@ -1,6 +1,10 @@
 #ifndef __COMMON_H
 #define __COMMON_H
 
+#include <glad/gl.h>
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
+
 #include <stdlib.h>
 
 #ifndef __FILE_NAME__

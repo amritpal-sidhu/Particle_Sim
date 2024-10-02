@@ -1,3 +1,5 @@
+#define GLAD_GL_IMPLEMENTATION
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

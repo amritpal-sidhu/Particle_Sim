@@ -1,20 +1,26 @@
 project(particle_sim)
 
-prepend_local_sources(particle_sim.c callbacks.c init_functions.c)
+get_sources_abspath(SRCS particle_sim.c callbacks.c init_functions.c)
 
 add_executable(${PROJECT_NAME} WIN32)
 target_sources(${PROJECT_NAME} PRIVATE ${LOCAL_SOURCES})
 target_link_libraries(${PROJECT_NAME}
         PUBLIC vector log mechanics graphic_helpers glfw ${GLAD_LIB}
-        PRIVATE ${CMAKE_DL_LIBS})
+        PRIVATE ${CMAKE_DL_LIBS}
+)
 target_include_directories(${PROJECT_NAME}
-        PRIVATE inc
-        "${CMAKE_SOURCE_DIR}/inc"
-        "$<TARGET_PROPERTY:glfw,INCLUDE_DIRECTORIES>"
-        "$<TARGET_PROPERTY:unity,INCLUDE_DIRECTORIES>"
-        "$<TARGET_PROPERTY:${GLAD_LIB},INCLUDE_DIRECTORIES>")
-target_sources(${PROJECT_NAME} PRIVATE FILE_SET interface_HEADER_SETS TYPE HEADERS BASE_DIRS "${GLFW_DIR}/deps/" FILES "${GLFW_DIR}/deps/linmath.h")
+    PUBLIC inc
+    "${CMAKE_SOURCE_DIR}/inc"
+    "${CMAKE_BINARY_DIR}/include"
+    "$<TARGET_PROPERTY:glfw,INCLUDE_DIRECTORIES>"
+)
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-        TARGET_GL_MAJOR=${TARGET_GL_MAJOR}
-        TARGET_GL_MINOR=${TARGET_GL_MINOR}
-        TARGET_GL_PROFILE=$<IF:$<STREQUAL:${TARGET_GL_PROFILE},core>,GLFW_OPENGL_CORE_PROFILE,GLFW_OPENGL_COMPAT_PROFILE>)
+        TARGET_GL_MAJOR=$CACHE{GLAD_API_MAJOR}
+        TARGET_GL_MINOR=$CACHE{GLAD_API_MINOR}
+        TARGET_GL_PROFILE=$CACHE{GLAD_API_PROFILE_DEF}
+)
+
+unset(GLAD_API_MAJOR CACHE)
+unset(GLAD_API_MINOR CACHE)
+unset(GLAD_API_PROFILE_DEF CACHE)

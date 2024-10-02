@@ -3,15 +3,19 @@
 
 declare -r SRC_DIR="$PWD"
 declare -r BUILD_DIR="$SRC_DIR/_build"
-declare -r GENERATOR="Ninja"
-declare -r BUILD_TYPE="Debug"
-# declare -r TOOLCHAIN_FILE="$SRC_DIR/cmake/x86_64-w64-mingw32.cmake"
-declare -ar CMAKE_CONFIG_ARGS=( \
+declare -r GENERATOR="Ninja Multi-Config"
+declare -r CONFIG="Debug"
+declare -r TOP_LEVEL_INCS="cmake/ParticleSimBuildModule.cmake"
+
+declare -ar PROJ_GEN_ARGS=( \
     -S "$SRC_DIR" \
     -B "$BUILD_DIR" \
     -G "$GENERATOR" \
-    -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-    # -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
+    -DCMAKE_CONFIGURATION_TYPES="$CONFIG" \
+    -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES="$TOP_LEVEL_INCS" \
+)
+declare -ar BUILD_ARGS=( \
+    --build "$BUILD_DIR" \
 )
 
 
@@ -22,6 +26,7 @@ print_usage()
     echo "Options:"
     echo "  When called without options cmake will configure and build the project"
     echo "  -h, --help              print this message"
+    echo "  -i, --info              dumps system information"
     echo "  -b, --build [target]    configure and build the project, optionally can specify target"
     echo "  -f, --fresh             remove existing cache files"
     echo "  -c, --clean [target]    clean the cmake project, optionally can specify target"
@@ -39,27 +44,33 @@ get_target()
 }
 
 
-while [[ $# -ne 0 ]]; do
+first=1
+
+while [[ $# -ne 0 || $first ]]; do
 
     case "$1" in
 
         ""|"-b"|"--build")
             get_target ${2:-}; declare -I TGT
-            cmake "${CMAKE_CONFIG_ARGS[@]}"
-            cmake --build "$BUILD_DIR" ${TGT:-}
+            cmake "${PROJ_GEN_ARGS[@]}"
+            cmake "${BUILD_ARGS[@]}" ${TGT:-}
             ;;
 
         "-f"|"--fresh")
-            cmake "${CMAKE_CONFIG_ARGS[@]}" --fresh
+            cmake "${PROJ_GEN_ARGS[@]}" --fresh
             ;;
 
         "-c"|"--clean") 
             get_target ${2:-}; declare -I TGT
-            cmake --build "$BUILD_DIR" ${TGT:-} -- -t clean
+            cmake "${BUILD_ARGS[@]}" ${TGT:-} -- -t clean
             ;;
 
         "-d"|"--delete") 
             rm -rf "$BUILD_DIR"
+            ;;
+
+        "-i"|"--info")
+            cmake "${PROJ_GEN_ARGS[@]}"
             ;;
 
         "-h"|"--help"|*)
@@ -68,4 +79,5 @@ while [[ $# -ne 0 ]]; do
     esac
 
     shift ${TGT:+2}
+    unset first
 done

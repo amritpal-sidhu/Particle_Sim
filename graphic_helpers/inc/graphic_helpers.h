@@ -9,12 +9,9 @@
 
 #define PI                  3.14159265358979323846264338327950
 
-#define POS_ATTR_NAME               "in_pos"
-#define COL_ATTR_NAME               "in_color"
-#define MVP_UNION_NAME              "in_MVP"
-#define POS_ATTR_IDX                0
-#define COL_ATTR_IDX                1
-#define MVP_UNION_IDX               2
+#define POS_ATTR_LOC                0
+#define COL_ATTR_LOC                1
+#define MVP_UNION_LOC               2
 
 #define DEBUG_OUTPUT_FILEPATH       "debug_output.txt"
 

@@ -176,13 +176,12 @@ void bind_vertex_attributes(const struct render_data_s *rdata)
         glBindVertexArray(rdata->VAO[buf]);
 
         glBindVertexBuffer(buf, rdata->VBO[buf], 0, sizeof(struct vertex));
-        glEnableVertexAttribArray(POS_ATTR_IDX);
-        glEnableVertexAttribArray(COL_ATTR_IDX);
-        glVertexAttribLFormat(POS_ATTR_IDX, 3, GL_DOUBLE, offsetof(struct vertex, pos));
-        glVertexAttribFormat(COL_ATTR_IDX, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, color));
-        glVertexAttribBinding(POS_ATTR_IDX, buf);
-        glVertexAttribBinding(COL_ATTR_IDX, buf);
-        glBindVertexBuffer(buf, 0, 0, 0);
+        glEnableVertexAttribArray(POS_ATTR_LOC);
+        glVertexAttribLFormat(POS_ATTR_LOC, 3, GL_DOUBLE, offsetof(struct vertex, pos));
+        glVertexAttribBinding(POS_ATTR_LOC, buf);
+        glEnableVertexAttribArray(COL_ATTR_LOC);
+        glVertexAttribFormat(COL_ATTR_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, color));
+        glVertexAttribBinding(COL_ATTR_LOC, buf);
     }
 
     glBindVertexArray(0);
@@ -215,7 +214,7 @@ void update_mvp_uniform(struct render_data_s *rdata, const vector3d_t pos, const
     mat4x4_ortho(p, -rdata->ratio, rdata->ratio, -1.f, 1.f, 1.f, -1.f);
     mat4x4_mul(mvp, p, m);
 
-    glUniformMatrix4fv(MVP_UNION_IDX, 1, GL_FALSE, (const GLfloat *)mvp);
+    glUniformMatrix4fv(MVP_UNION_LOC, 1, GL_FALSE, (const GLfloat *)mvp);
 }
 
 void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const double r, const int num_segments, const color_t color)

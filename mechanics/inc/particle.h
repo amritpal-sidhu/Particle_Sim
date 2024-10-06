@@ -3,17 +3,17 @@
 #include "vector.h"
 
 
-#define PROTON_CHARGE       1.602E-19  // Coulombs
-#define ELECTRON_CHARGE     -1.602E-19
+#define PROTON_CHARGE       1.602E-19f  // Coulombs
+#define ELECTRON_CHARGE     -1.602E-19f
 
-#define PROTON_MASS         1.6727E-24 // Grams
-#define NEUTRON_MASS        1.675E-24
-#define ELECTRON_MASS       9.11E-28
+#define PROTON_MASS         1.6727E-24f // Grams
+#define NEUTRON_MASS        1.675E-24f
+#define ELECTRON_MASS       9.11E-28f
 
 /* Based on Wikipedia covalent radi */
-#define HELIUM_NUCLEUS_RADIUS   28E-12     // Meters
-#define ELECTRON_RADIUS         10E-15     // Meters
-#define FAKE_NUCLEUS_RADIUS     0.1
+#define HELIUM_NUCLEUS_RADIUS   28E-12f     // Meters
+#define ELECTRON_RADIUS         10E-15f     // Meters
+#define FAKE_NUCLEUS_RADIUS     0.1f
 
 
 typedef struct

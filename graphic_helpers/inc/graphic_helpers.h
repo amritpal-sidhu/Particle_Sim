@@ -7,7 +7,7 @@
 #include "vector.h"
 #include "common.h"
 
-#define PI                  3.14159265358979323846264338327950
+#define PI                  3.14159265358979323846264338327950f
 
 #define POS_ATTR_LOC                0
 #define COL_ATTR_LOC                1

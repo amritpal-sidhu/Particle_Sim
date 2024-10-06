@@ -177,7 +177,7 @@ void bind_vertex_attributes(const struct render_data_s *rdata)
 
         glBindVertexBuffer(buf, rdata->VBO[buf], 0, sizeof(struct vertex));
         glEnableVertexAttribArray(POS_ATTR_LOC);
-        glVertexAttribLFormat(POS_ATTR_LOC, 3, GL_DOUBLE, offsetof(struct vertex, pos));
+        glVertexAttribFormat(POS_ATTR_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, pos));
         glVertexAttribBinding(POS_ATTR_LOC, buf);
         glEnableVertexAttribArray(COL_ATTR_LOC);
         glVertexAttribFormat(COL_ATTR_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, color));

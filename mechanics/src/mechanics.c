@@ -7,10 +7,10 @@
 
 // #define __USE_GRAVITY
 
-#define LOCAL_EPSILON               1E-128
+#define LOCAL_EPSILON               1E-38f
 
-#define UNIVERSAL_GRAVITY_CONST     6.6743E-17 // (N*m^2)/(g^2)
-#define COULOMB_CONST               8.9875E9  // (N*m^2)/(C^2)
+#define UNIVERSAL_GRAVITY_CONST     6.6743E-17f // (N*m^2)/(g^2)
+#define COULOMB_CONST               8.9875E9f  // (N*m^2)/(C^2)
 
 
 extern log_t *log_handle;

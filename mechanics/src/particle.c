@@ -6,7 +6,7 @@
 particle_t *particle__new(const unsigned long long int id,
                           const vector3d_t initial_pos, const vector3d_t initial_momentum,
                           const vector3d_t initial_orientation, const vector3d_t initial_angular_momentum,
-                          const double mass, const double charge, const double radius)
+                          const float mass, const float charge, const float radius)
 {
     particle_t *p = malloc(sizeof(particle_t));
 

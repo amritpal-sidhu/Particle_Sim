@@ -23,9 +23,9 @@ typedef struct
     vector3d_t momenta;
     vector3d_t orientation;
     vector3d_t angular_momenta;
-    double mass;
-    double charge;
-    double radius;
+    float mass;
+    float charge;
+    float radius;
 
 } particle_t;
 
@@ -33,5 +33,5 @@ typedef struct
 particle_t *particle__new(const unsigned long long int id,
                           const vector3d_t initial_pos, const vector3d_t initial_momentum,
                           const vector3d_t initial_orientation, const vector3d_t initial_angular_momentum,
-                          const double mass, const double charge, const double radius);
+                          const float mass, const float charge, const float radius);
 void particle__delete(particle_t *p);

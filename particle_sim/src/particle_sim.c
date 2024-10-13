@@ -62,6 +62,12 @@ int main(void)
      * create and initialize a vertex array object
      */
     vertex_array_object_init(&rdata);
+
+    /**
+     * initialize shader storage buffer object with particle data
+     */
+    shader_storage_buffer_init(&rdata, *particles, sizeof(*particles));
+
  
 
     render_loop(window);
@@ -91,18 +97,13 @@ static void render_loop(GLFWwindow *window)
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glUseProgram(rdata.program);
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i) {
-            update_mvp_uniform(&rdata, particles[i]->pos, particles[i]->orientation);
-            glBindVertexArray(rdata.VAO[i<P_COUNT?P_BUF:E_BUF]);
-            glDrawArrays(GL_TRIANGLE_FAN, 0, rdata.num_segments);
-            glBindVertexArray(0);
+            render_particles(&rdata, i);
+            run_time_evolution_shader(&rdata, i, sample_period);
         }
 
         glfwSwapBuffers(window);
         glfwPollEvents();
-
-        time_evolution(particles, P_COUNT+E_COUNT, sample_period);
 
         double elapsed_time_usec = 1E6*(glfwGetTime()-loop_start_time);
         if (elapsed_time_usec < wait_time_usec)

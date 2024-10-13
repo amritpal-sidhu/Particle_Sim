@@ -1,12 +1,17 @@
 #version 460 core
 
-struct glsl_particle_t
+struct vector3d_t
+{
+    float x, y, z;
+};
+
+struct particle_t
 {
     uint id;
-    vec3 pos;
-    vec3 momentum;
-    vec3 orientation;
-    vec3 angular_momentum;
+    vector3d_t pos;
+    vector3d_t momentum;
+    vector3d_t orientation;
+    vector3d_t angular_momentum;
     float mass;
     float charge;
     float radius;
@@ -15,18 +20,19 @@ struct glsl_particle_t
 
 layout(binding = 0) buffer particle_data_block
 {
-    glsl_particle_t data[];    
+    particle_t particles[];    
 };
-layout(location = 0) in vec3 in_color;
-layout(location = 1) uniform uint id;
-layout(location = 2) uniform float view_scalar;
-layout(location = 3) uniform float view_ratio;
+layout(location = 0) in vec3 in_pos;
+layout(location = 1) in vec3 in_color;
+layout(location = 2) uniform uint id;
+layout(location = 3) uniform float view_scalar;
+layout(location = 4) uniform float view_ratio;
 out vec3 vertex_color;
 
 
 /* Private function prototypes */
 mat4 mat4_identity();
-mat4 mat4_translate(const vec3 pos);
+mat4 mat4_translate(const vector3d_t pos);
 mat4 mat4_rotate_X(const mat4 M, const float angle);
 mat4 mat4_rotate_Y(const mat4 M, const float angle);
 mat4 mat4_rotate_Z(const mat4 M, const float angle);
@@ -35,19 +41,19 @@ mat4 mat4_ortho(mat4 M, const float l, const float r, const float b, const float
 
 void main()
 {
-    mat4 mvp, m, p;
+    mat4 mvp, m, v, p;
 
-    m = mat4_translate(data[id].pos.xyz);
+    m = mat4_translate(particles[id].pos);
     /* Angles need to be "unscaled" */
-    m = mat4_rotate_X(m, data[id].orientation.x/view_scalar);
-    m = mat4_rotate_Y(m, data[id].orientation.y/view_scalar);
-    m = mat4_rotate_Z(m, data[id].orientation.z/view_scalar);
-    m *= view_scalar;
+    v = mat4_rotate_X(m, particles[id].orientation.x/view_scalar);
+    v = mat4_rotate_Y(m, particles[id].orientation.y/view_scalar);
+    v = mat4_rotate_Z(m, particles[id].orientation.z/view_scalar);
+    v *= view_scalar;
 
     p = mat4_ortho(p, -view_ratio, view_ratio, -1, 1, 1, -1);
-    mvp = p * m;
+    mvp = p * v * m;
 
-    gl_Position = mvp * vec4(data[id].pos, 1);
+    gl_Position = mvp * vec4(in_pos, 1);
     vertex_color = in_color;
 }
 
@@ -64,7 +70,7 @@ mat4 mat4_identity()
     return M;
 }
 
-mat4 mat4_translate(const vec3 pos)
+mat4 mat4_translate(const vector3d_t pos)
 {
     mat4 T;
 

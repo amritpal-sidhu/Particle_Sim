@@ -2,15 +2,18 @@
 
 #include <stdlib.h>
 
+#include "particle_sim.h"
 #include "particle.h"
 #include "common.h"
 
 
-#define SHADER_COUNT    2
+#define SHADER_COUNT    3
+#define COMPUTE_SHADER_FILEPATH     "shaders/time_evolution.comp.glsl"
 #define VERTEX_SHADER_FILEPATH      "shaders/vs.vert.glsl"
 #define FRAGMENT_SHADER_FILEPATH    "shaders/fs.frag.glsl"
 
 enum shader_e {
+    COMP,
     VERT,
     FRAG,
 };
@@ -24,11 +27,13 @@ enum shader_build_e {
 extern log_t *log_handle;
 
 static const GLchar *shader_filepath[SHADER_COUNT] = {
+    COMPUTE_SHADER_FILEPATH,
     VERTEX_SHADER_FILEPATH,
     FRAGMENT_SHADER_FILEPATH
 };
 
 static const  GLenum shader_type[SHADER_COUNT] = {
+    GL_COMPUTE_SHADER,
     GL_VERTEX_SHADER,
     GL_FRAGMENT_SHADER
 };
@@ -54,8 +59,16 @@ static GLchar *get_shader_text(const enum shader_e type, size_t *text_len)
         return NULL;
     }
 
+    char shader_name[16];
+    switch (type) {
+        case COMP: strncpy(shader_name, "COMPUTE", sizeof(shader_name)); break;
+        case VERT: strncpy(shader_name, "VERTEX", sizeof(shader_name)); break;
+        case FRAG: strncpy(shader_name, "FRAGMENT", sizeof(shader_name)); break;
+        default: strncpy(shader_name, "WRONG_TYPE", sizeof(shader_name)); break;
+    }
+
     if (file_size != fread(text, sizeof(char), file_size, fp)) {
-        log__write(log_handle, LOG_WARNING, "%s SHADER READ: read incorrect bytes\n\n%s\n", type==VERT?"VERTEX":"FRAGMENT", text);
+        log__write(log_handle, LOG_WARNING, "%s SHADER READ: read incorrect bytes\n\n%s\n", shader_name, text);
         free(text);
         fclose(fp);
         return NULL;
@@ -122,10 +135,10 @@ static GLuint compile_shader_spir_v(const enum shader_e type)
     return check_shader_build_status(COMPILE, shader);
 }
 
-static GLuint link_shader(const GLuint *shaders)
+static GLuint link_shader(const GLuint *shaders, const size_t s_size)
 {
     GLuint program = glCreateProgram();
-    for (size_t i = 0; i < SHADER_COUNT; ++i)
+    for (size_t i = 0; i < s_size; ++i)
         glAttachShader(program, shaders[i]);
 
     glLinkProgram(program);
@@ -139,16 +152,18 @@ int shader_compile_and_link(struct render_data_s *rdata)
     int retval = EXIT_SUCCESS;
 
     /* get the shader source and compile */
-    for (enum shader_e s = VERT; s <= FRAG; ++s) {
+    for (enum shader_e s = COMP; s <= FRAG; ++s) {
         if (!(shaders[s]=compile_shader(s)))
             return EXIT_FAILURE;
     }
 
-    /* link program */
-    if (!(rdata->program=link_shader(shaders)))
+    /* link programs */
+    if (!(rdata->compute_program=link_shader(&shaders[COMP], 1)) || !(rdata->program=link_shader(&shaders[VERT], SHADER_COUNT-1)))
         retval = EXIT_FAILURE;
     
     /* clean up shader objects */
+    glDetachShader(rdata->compute_program, shaders[0]);
+    glDeleteShader(shaders[0]);
     for (enum shader_e s = VERT; s <= FRAG; ++s) {
         glDetachShader(rdata->program, shaders[s]);
         glDeleteShader(shaders[s]);
@@ -174,14 +189,13 @@ void bind_vertex_attributes(const struct render_data_s *rdata)
     for (buffer_index_e buf = P_BUF; buf <= E_BUF; ++buf) {
 
         glBindVertexArray(rdata->VAO[buf]);
-
         glBindVertexBuffer(buf, rdata->VBO[buf], 0, sizeof(struct vertex));
-        glEnableVertexAttribArray(POS_ATTR_LOC);
-        glVertexAttribFormat(POS_ATTR_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, pos));
-        glVertexAttribBinding(POS_ATTR_LOC, buf);
-        glEnableVertexAttribArray(COL_ATTR_LOC);
-        glVertexAttribFormat(COL_ATTR_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, color));
-        glVertexAttribBinding(COL_ATTR_LOC, buf);
+        glEnableVertexAttribArray(IN_POS_ATTR_LOC);
+        glVertexAttribFormat(IN_POS_ATTR_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, pos));
+        glVertexAttribBinding(IN_POS_ATTR_LOC, buf);
+        glEnableVertexAttribArray(IN_COL_ATTR_LOC);
+        glVertexAttribFormat(IN_COL_ATTR_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, color));
+        glVertexAttribBinding(IN_COL_ATTR_LOC, buf);
     }
 
     glBindVertexArray(0);
@@ -201,20 +215,33 @@ void vertex_buffer_init(GLuint *VBO, void *data, const size_t size)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void update_mvp_uniform(struct render_data_s *rdata, const vector3d_t pos, const vector3d_t angle)
+void shader_storage_buffer_init(struct render_data_s *rdata, void *data, const size_t size)
 {
-    mat4x4 mvp, m, p;
+    glGenBuffers(1, &rdata->SSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, SSBO_BINDING_POINT, rdata->SSBO);
+}
 
-    mat4x4_translate(m, pos.i, pos.j, pos.k);
-    /* Angles need to be "unscaled" */
-    mat4x4_rotate_X(m, m, angle.i/rdata->view_scalar);
-    mat4x4_rotate_Y(m, m, angle.j/rdata->view_scalar);
-    mat4x4_rotate_Z(m, m, angle.k/rdata->view_scalar);
-    mat4x4_scale(m, m, rdata->view_scalar);
-    mat4x4_ortho(p, -rdata->ratio, rdata->ratio, -1.f, 1.f, 1.f, -1.f);
-    mat4x4_mul(mvp, p, m);
+void render_particles(const struct render_data_s *rdata, const size_t particle_index)
+{
+    glUseProgram(rdata->program);
+    glUniform1ui(VS_ID_UNIFORM_LOC, particle_index);
+    glUniform1f(VIEW_SCALAR_UNIFORM_LOC, rdata->view_scalar);
+    glUniform1f(VIEW_SCALAR_UNIFORM_LOC, rdata->ratio);
+    glBindVertexArray(rdata->VAO[particle_index<P_COUNT?P_BUF:E_BUF]);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, rdata->num_segments);
+    glBindVertexArray(0);
 
-    glUniformMatrix4fv(MVP_UNION_LOC, 1, GL_FALSE, (const GLfloat *)mvp);
+}
+
+void run_time_evolution_shader(const struct render_data_s *rdata, const size_t particle_index, const float sample_period)
+{
+    glUseProgram(rdata->compute_program);
+    glUniform1ui(CS_ID_UNIFORM_LOC, particle_index);
+    glUniform1f(SAMPLE_PERIOD_UNIFORM_LOC, sample_period);
+    glDispatchCompute(1, 1, 1);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
 void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const double r, const int num_segments, const color_t color)

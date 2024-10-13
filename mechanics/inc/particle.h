@@ -18,7 +18,7 @@
 
 typedef struct
 {
-    unsigned long long int id;
+    unsigned int id;
     vector3d_t pos;
     vector3d_t momenta;
     vector3d_t orientation;

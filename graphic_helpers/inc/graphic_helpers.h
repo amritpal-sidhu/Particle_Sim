@@ -12,16 +12,6 @@
 /* shader storage buffer binding point */
 #define SSBO_BINDING_POINT          0
 
-/* uniform buffer object offsets and sizes */
-#define UBO_VIEW_SCALAR_OFFSET      0
-#define UBO_VIEW_RATIO_OFFSET       16
-#define UBO_SIZE                    32
-/* shader storage buffer offsets and sizes */
-#define SSBO_INDEX_OFFSET           0
-#define SSBO_SAMPLE_PERIOD_OFFSET   sizeof(unsigned int)
-#define SSBO_PARTICLES_OFFSET       sizeof(float)+SSBO_SAMPLE_PERIOD_OFFSET
-#define SSBO_SIZE                   sizeof(particle_t)*(P_COUNT+E_COUNT)+SSBO_PARTICLES_OFFSET
-
 /* vertex shader locations */
 #define UBO_BINDING_POINT           1
 #define VS_IN_POS_LOC               0
@@ -51,6 +41,14 @@ struct vertex
     color_t color;
 };
 
+typedef enum
+{
+    TIME_EVOLVE,
+    RASTER,
+} program_e;
+
+#define PROGRAM_COUNT   2
+
 struct render_data_s
 {
     float ratio;
@@ -60,14 +58,29 @@ struct render_data_s
     GLuint VBO[VBO_COUNT];
     GLuint UBO;
     GLuint SSBO;
-    GLuint program;
-    GLuint compute_program;
+    GLuint program[PROGRAM_COUNT];
 };
 
 
 /* Soley for visually identifying the particles graphically */
 extern const color_t p_color;
 extern const color_t e_color;
+
+/* uniform buffer object offsets and size variables */
+static struct ubo_info_s
+{
+    unsigned int view_scalar_offset;
+    unsigned int view_ratio_offset;
+    unsigned int size;
+} ubo_info;
+/* shader storage buffer offsets and sizes */
+static struct ssbo_info_s
+{
+    unsigned int index_offset;
+    unsigned int sample_period_offset;
+    unsigned int particles_offset;
+    unsigned int size;
+} ssbo_info;
 
 
 void vertex_buffer_init(struct render_data_s *rdata, const buffer_index_e buf, void *data, const size_t size);

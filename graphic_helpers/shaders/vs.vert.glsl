@@ -20,17 +20,17 @@ struct particle_t
 };
 
 
-layout(std430, binding = 0) buffer particle_data_block
+layout(binding = 0) buffer particle_data_block
 {
     uint index;
     float sample_period;
     particle_t particles[];
 };
-layout(std140, binding = 1) uniform view_data_block
-{                       // base alignment   offset
-    float view_scalar;  // 4(16)            0
-    float view_ratio;   // 4(16)            16
-};                      // Total:           32
+layout(binding = 1) uniform view_data_block
+{
+    float view_scalar;
+    float view_ratio;
+};
 
 layout(location = 0) in vec3 in_pos;
 layout(location = 1) in vec3 in_color;

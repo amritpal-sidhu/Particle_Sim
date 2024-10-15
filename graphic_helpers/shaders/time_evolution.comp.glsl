@@ -29,7 +29,7 @@ struct particle_t
 
 /* variables */
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-layout(std430, binding = 0) buffer particle_data_block
+layout(binding = 0) buffer particle_data_block
 {
     uint index;
     float sample_period;

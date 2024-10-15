@@ -49,7 +49,7 @@ int main(void)
     /**
      * compile and link shaders and create buffer objects
      */
-    ERROR_CHECK(shader_compile_and_link(&rdata), exit(EXIT_FAILURE), LOG_ERROR, "shader_compile_and_link() failed");
+    shader_compile_and_link(&rdata);
 
     /**
      * initialize buffer objects

@@ -43,6 +43,25 @@ const color_t e_color = (color_t){.r = 0.0f, .g = 0.0f, .b = 1.0f};
 
 
 /* Private function definitions */
+static GLchar *shader_type_to_name(const enum shader_e type)
+{
+    switch (type) {
+        case COMP: return "COMPUTE"; break;
+        case VERT: return "VERTEX"; break;
+        case FRAG: return "FRAGMENT"; break;
+        default: return "WRONG_TYPE"; break;
+    }
+}
+
+static GLchar *program_type_to_name(const program_e type)
+{
+    switch (type) {
+        case TIME_EVOLVE: "TIME_EVOLUTION"; break;
+        case RASTER: "RASTERIZATION"; break;
+        default: "WRONG_TYPE"; break;
+    }
+}
+
 static GLchar *get_shader_text(const enum shader_e type, size_t *text_len)
 {
     GLchar *text = NULL;
@@ -58,17 +77,9 @@ static GLchar *get_shader_text(const enum shader_e type, size_t *text_len)
         fclose(fp);
         return NULL;
     }
-
-    char shader_name[16];
-    switch (type) {
-        case COMP: strncpy(shader_name, "COMPUTE", sizeof(shader_name)); break;
-        case VERT: strncpy(shader_name, "VERTEX", sizeof(shader_name)); break;
-        case FRAG: strncpy(shader_name, "FRAGMENT", sizeof(shader_name)); break;
-        default: strncpy(shader_name, "WRONG_TYPE", sizeof(shader_name)); break;
-    }
-
+    
     if (file_size != fread(text, sizeof(char), file_size, fp)) {
-        log__write(log_handle, LOG_WARNING, "%s SHADER READ: read incorrect bytes\n\n%s\n", shader_name, text);
+        log__write(log_handle, LOG_WARNING, "%s SHADER READ: read incorrect bytes\n\n%s\n", shader_type_to_name(type), text);
         free(text);
         fclose(fp);
         return NULL;
@@ -145,6 +156,167 @@ static GLuint link_shader(const GLuint *shaders, const size_t s_size)
     return check_shader_build_status(LINK, program);
 }
 
+static void get_program_buffer_block_names_and_offsets(const GLuint program, const GLenum buf_interface, const enum shader_e s)
+{
+    GLint num_resources, ssbo_max_len, var_max_len;
+    GLchar *resource_name, *var_name;
+
+    /* get the number of ssbos, the max length of the ssbo names, and the max length of variable names */
+    glGetProgramInterfaceiv(program, buf_interface, GL_ACTIVE_RESOURCES, &num_resources);
+    glGetProgramInterfaceiv(program, buf_interface, GL_MAX_NAME_LENGTH, &ssbo_max_len);
+    glGetProgramInterfaceiv(program, GL_BUFFER_VARIABLE, GL_MAX_NAME_LENGTH, &var_max_len);
+    ERROR_CHECK(!(resource_name=malloc(ssbo_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+    ERROR_CHECK(!(var_name=malloc(var_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+
+    for (GLint i = 0; i < num_resources; ++i) {
+        GLenum prop;
+        GLint num_var, *vars, offset, buffer_data_size;
+
+        /* Get the ssbo name */
+        prop = GL_NUM_ACTIVE_VARIABLES;
+        glGetProgramResourceName(program, buf_interface, i, ssbo_max_len, NULL, resource_name);
+
+        /* get the resource index */
+        GLuint resource_index = glGetProgramResourceIndex(program, buf_interface, resource_name);
+        log__write(log_handle, LOG_INFO, "%s shader's SSBO resource name: %s", shader_type_to_name(s), resource_name);
+
+        /* get the number of variables in the ssbo */
+        glGetProgramResourceiv(program, buf_interface, resource_index, 1, &prop, 1, NULL, &num_var);
+        ERROR_CHECK(!(vars=malloc(num_var*sizeof(GLint))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+        
+        /* get the active variables within the ssbo */
+        prop = GL_ACTIVE_VARIABLES;
+        glGetProgramResourceiv(program, buf_interface, resource_index, 1, &prop, num_var, NULL, vars);
+
+        /* get and print to log the names and offsets for the ssbo variables */
+        prop = GL_OFFSET;
+        for (GLint j = 0; j < num_var; ++j) {
+            glGetProgramResourceiv(program, GL_BUFFER_VARIABLE, vars[j], 1, &prop, num_var, NULL, &offset);
+            glGetProgramResourceName(program, GL_BUFFER_VARIABLE, vars[j], var_max_len, NULL, var_name);
+            log__write(log_handle, LOG_INFO, "  Variable %s offset = %u", var_name, offset);
+        }
+
+        free(vars);
+
+        prop = GL_BUFFER_DATA_SIZE;
+        glGetProgramResourceiv(program, buf_interface, resource_index, 1, &prop, 1, NULL, &buffer_data_size);
+        log__write(log_handle, LOG_INFO, "  Buffer data size = %u", buffer_data_size);
+    }
+
+    free(resource_name);
+    free(var_name);
+}
+
+static void get_ssbo_info(struct ssbo_info_s *info, const struct render_data_s *rdata)
+{
+    GLint num_resources, ssbo_max_len, var_max_len;
+    GLchar *resource_name, *var_name;
+
+    /* get the number of ssbos, the max length of the ssbo names, and the max length of variable names */
+    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &num_resources);
+    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &ssbo_max_len);
+    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, GL_MAX_NAME_LENGTH, &var_max_len);
+    ERROR_CHECK(!(resource_name=malloc(ssbo_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+    ERROR_CHECK(!(var_name=malloc(var_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+
+    for (GLint i = 0; i < num_resources; ++i) {
+        GLenum prop;
+        GLint num_var, *vars, offset, buffer_data_size;
+
+        /* Get the ssbo name */
+        prop = GL_NUM_ACTIVE_VARIABLES;
+        glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, i, ssbo_max_len, NULL, resource_name);
+
+        /* get the resource index */
+        GLuint resource_index = glGetProgramResourceIndex(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_name);
+
+        /* get the number of variables in the ssbo */
+        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &num_var);
+        ERROR_CHECK(!(vars=malloc(num_var*sizeof(GLint))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+        
+        /* get the active variables within the ssbo */
+        prop = GL_ACTIVE_VARIABLES;
+        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, num_var, NULL, vars);
+
+        /* get and print to log the names and offsets for the ssbo variables */
+        prop = GL_OFFSET;
+        for (GLint j = 0; j < num_var; ++j) {
+            glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], 1, &prop, num_var, NULL, &offset);
+            glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], var_max_len, NULL, var_name);
+
+            if (!strcmp(var_name, "index")) {
+                info->index_offset = offset;
+            } else if (!strcmp(var_name, "sample_period")) {
+                info->sample_period_offset = offset;
+            } else if (!strcmp(var_name, "particles[0].id")) {
+                info->particles_offset = offset;
+            }
+        }
+
+        free(vars);
+
+        prop = GL_BUFFER_DATA_SIZE;
+        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &info->size);
+    }
+
+    free(resource_name);
+    free(var_name);
+}
+
+static void get_ubo_info(struct ubo_info_s *info, const struct render_data_s *rdata)
+{
+    GLint num_resources, ssbo_max_len, var_max_len;
+    GLchar *resource_name, *var_name;
+
+    /* get the number of ssbos, the max length of the ssbo names, and the max length of variable names */
+    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &num_resources);
+    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &ssbo_max_len);
+    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, GL_MAX_NAME_LENGTH, &var_max_len);
+    ERROR_CHECK(!(resource_name=malloc(ssbo_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+    ERROR_CHECK(!(var_name=malloc(var_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+
+    for (GLint i = 0; i < num_resources; ++i) {
+        GLenum prop;
+        GLint num_var, *vars, offset, buffer_data_size;
+
+        /* Get the ssbo name */
+        prop = GL_NUM_ACTIVE_VARIABLES;
+        glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, i, ssbo_max_len, NULL, resource_name);
+
+        /* get the resource index */
+        GLuint resource_index = glGetProgramResourceIndex(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_name);
+
+        /* get the number of variables in the ssbo */
+        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &num_var);
+        ERROR_CHECK(!(vars=malloc(num_var*sizeof(GLint))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+        
+        /* get the active variables within the ssbo */
+        prop = GL_ACTIVE_VARIABLES;
+        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, num_var, NULL, vars);
+
+        /* get and print to log the names and offsets for the ssbo variables */
+        prop = GL_OFFSET;
+        for (GLint j = 0; j < num_var; ++j) {
+            glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], 1, &prop, num_var, NULL, &offset);
+            glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], var_max_len, NULL, var_name);
+
+            if (!strcmp(var_name, "view_scalar")) {
+                info->view_scalar_offset = offset;
+            } else if (!strcmp(var_name, "view_ratio")) {
+                info->view_ratio_offset = offset;
+            }
+        }
+
+        free(vars);
+
+        prop = GL_BUFFER_DATA_SIZE;
+        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &info->size);
+    }
+
+    free(resource_name);
+    free(var_name);
+}
+
 /* Public function definitions */
 int shader_compile_and_link(struct render_data_s *rdata)
 {
@@ -152,22 +324,29 @@ int shader_compile_and_link(struct render_data_s *rdata)
     int retval = EXIT_SUCCESS;
 
     /* get the shader source and compile */
-    for (enum shader_e s = COMP; s <= FRAG; ++s) {
-        if (!(shaders[s]=compile_shader(s)))
-            return EXIT_FAILURE;
-    }
+    for (enum shader_e s = COMP; s <= FRAG; ++s)
+        ERROR_CHECK(!(shaders[s]=compile_shader(s)),
+                    exit(EXIT_FAILURE), LOG_ERROR, "Compiling %s shader failed.", shader_type_to_name(s));
 
     /* link programs */
-    if (!(rdata->compute_program=link_shader(&shaders[COMP], 1)) || !(rdata->program=link_shader(&shaders[VERT], SHADER_COUNT-1)))
-        retval = EXIT_FAILURE;
+    for (program_e p = TIME_EVOLVE; p <= RASTER; ++p)
+        ERROR_CHECK(!(rdata->program[p]=link_shader(&shaders[p==RASTER?VERT:COMP], p==RASTER?SHADER_COUNT-1:1)),
+                    exit(EXIT_FAILURE), LOG_ERROR, "Linking %s shader failed.", program_type_to_name(p));
     
     /* clean up shader objects */
-    glDetachShader(rdata->compute_program, shaders[0]);
-    glDeleteShader(shaders[0]);
+    glDetachShader(rdata->program[TIME_EVOLVE], shaders[COMP]);
+    glDeleteShader(shaders[COMP]);
     for (enum shader_e s = VERT; s <= FRAG; ++s) {
-        glDetachShader(rdata->program, shaders[s]);
+        glDetachShader(rdata->program[RASTER], shaders[s]);
         glDeleteShader(shaders[s]);
     }
+
+    get_program_buffer_block_names_and_offsets(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, COMP);
+    get_program_buffer_block_names_and_offsets(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, VERT);
+    get_program_buffer_block_names_and_offsets(rdata->program[RASTER], GL_UNIFORM_BLOCK, VERT);
+
+    get_ssbo_info(&ssbo_info, rdata);
+    get_ubo_info(&ubo_info, rdata);
 
     return retval;
 }
@@ -194,62 +373,23 @@ void vertex_buffer_init(struct render_data_s *rdata, const buffer_index_e buf, v
 
 void shader_storage_buffer_init(struct render_data_s *rdata, void *particle_data)
 {
-    GLint num_resources, ssbo_max_len;
-    GLsizei string_len;
-    GLchar resource_name[32];
-
     glGenBuffers(1, &rdata->SSBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
-    
-    glGetProgramInterfaceiv(rdata->compute_program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &num_resources);
-    glGetProgramInterfaceiv(rdata->compute_program, GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &ssbo_max_len);
-
-    for (GLint i = 0; i < num_resources; ++i) {
-        GLenum prop = GL_NUM_ACTIVE_VARIABLES;
-        GLint num_var, *vars, *offsets;
-        GLchar **var_names;
-
-        glGetProgramResourceName(rdata->compute_program, GL_SHADER_STORAGE_BLOCK, i, ssbo_max_len, &string_len, resource_name);
-        GLuint resource_index = glGetProgramResourceIndex(rdata->compute_program, GL_SHADER_STORAGE_BLOCK, resource_name);
-        log__write(log_handle, LOG_INFO, "SSBO Resource name %i: %s, index = %u", i, resource_name, resource_index);
-
-        glGetProgramResourceiv(rdata->compute_program, GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &num_var);
-        ERROR_CHECK(!(vars = malloc(num_var*sizeof(GLint))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
-        prop = GL_ACTIVE_VARIABLES;
-        glGetProgramResourceiv(rdata->compute_program, GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, num_var, NULL, vars);
-        log__write(log_handle, LOG_INFO, "SSBO Resource variables count = %i", num_var);
-        for (GLint j = 0; j < num_var; ++j)
-            log__write(log_handle, LOG_INFO, "  Resource variable = %i", vars[j]);
-
-        ERROR_CHECK(!(offsets = malloc(num_var*sizeof(GLint))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
-        ERROR_CHECK(!(var_names = malloc(num_var*sizeof(GLchar*))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
-        prop = GL_OFFSET;
-        for (GLint j = 0; j < num_var; ++j) {
-            ERROR_CHECK(!(var_names[j] = malloc(32*sizeof(GLchar))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed at j = %i", j);
-            glGetProgramResourceiv(rdata->compute_program, GL_BUFFER_VARIABLE, vars[j], 1, &prop, num_var, NULL, offsets);
-            glGetProgramResourceName(rdata->compute_program, GL_BUFFER_VARIABLE, vars[j], 32, &string_len, var_names[j]);
-            log__write(log_handle, LOG_INFO, "Variable %s offset = %i", var_names[j], offsets[j]);
-        }
-
-        free(vars);
-        for (GLint j = 0; j < num_var; ++j)
-            free(var_names[j]);
-        free(var_names);
-
-    }
-
-    glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO_SIZE, NULL, GL_DYNAMIC_COPY);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, (ssbo_info.size-8)*(P_COUNT+E_COUNT)+8, NULL, GL_DYNAMIC_COPY);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, SSBO_BINDING_POINT, rdata->SSBO);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, SSBO_SAMPLE_PERIOD_OFFSET, sizeof(float), &sample_period);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, SSBO_PARTICLES_OFFSET, sizeof(particle_t)*(P_COUNT+E_COUNT), particle_data);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.sample_period_offset, sizeof(float), &sample_period);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.particles_offset, sizeof(particle_t)*(P_COUNT+E_COUNT), particle_data);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    
+
 }
 
 void uniform_buffer_init(struct render_data_s *rdata)
 {
     glGenBuffers(1, &rdata->UBO);
     glBindBuffer(GL_UNIFORM_BUFFER, rdata->UBO);
-    glBufferData(GL_UNIFORM_BUFFER, UBO_SIZE, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, ubo_info.size, NULL, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, UBO_BINDING_POINT, rdata->UBO);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
@@ -279,12 +419,12 @@ void bind_vertex_array(const struct render_data_s *rdata)
 
 void render_particles(const struct render_data_s *rdata, const unsigned int particle_index)
 {
-    glUseProgram(rdata->program);
+    glUseProgram(rdata->program[RASTER]);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, SSBO_INDEX_OFFSET, sizeof(unsigned int), &particle_index);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.index_offset, sizeof(unsigned int), &particle_index);
     glBindBuffer(GL_UNIFORM_BUFFER, rdata->UBO);
-    glBufferSubData(GL_UNIFORM_BUFFER, UBO_VIEW_SCALAR_OFFSET, 4, &rdata->view_scalar);
-    glBufferSubData(GL_UNIFORM_BUFFER, UBO_VIEW_RATIO_OFFSET, 4, &rdata->ratio);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.view_scalar_offset, sizeof(float), &rdata->view_scalar);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.view_ratio_offset, sizeof(float), &rdata->ratio);
     glBindVertexArray(rdata->VAO[particle_index<P_COUNT?P_BUF:E_BUF]);
     glDrawArrays(GL_TRIANGLE_FAN, 0, rdata->num_segments);
     glBindVertexArray(0);
@@ -295,9 +435,9 @@ void render_particles(const struct render_data_s *rdata, const unsigned int part
 
 void run_time_evolution_shader(const struct render_data_s *rdata, const unsigned int particle_index)
 {
-    glUseProgram(rdata->compute_program);
+    glUseProgram(rdata->program[TIME_EVOLVE]);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, SSBO_INDEX_OFFSET, 4, &particle_index);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.index_offset, 4, &particle_index);
     glDispatchCompute(3, 3, 3);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);

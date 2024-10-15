@@ -137,8 +137,8 @@ void clean_program(GLFWwindow *window)
     glfwSetErrorCallback(previous_error_callback);
 
     glDeleteProgram(rdata.program);
-    glDeleteBuffers(BO_COUNT, rdata.VAO);
-    glDeleteBuffers(BO_COUNT, rdata.VBO);
+    glDeleteBuffers(VBO_COUNT, rdata.VAO);
+    glDeleteBuffers(VBO_COUNT, rdata.VBO);
 
     for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
         particle__delete(particles[i]);

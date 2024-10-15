@@ -21,38 +21,38 @@
 
 
 /* Main parameters that will effect the behavior */
-static const double sample_period = 8E-3;
+static const float sample_period = 8E-3f;
 
 static const vector3d_t initial_pos[P_COUNT+E_COUNT] = {
     /* Positively charged */
-    {.i = 0, .j = 0, .k = 0},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
     /* Negatively charged */
-    {.i = 0.3, .j = 0.5, .k = 0},
-    {.i = 0.5, .j = 0.3, .k = 0},
+    {.i = 0.3f, .j = 0.5f, .k = 0.0f},
+    {.i = 0.5f, .j = 0.3f, .k = 0.0f},
 };
 
 static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
     /* Positively charged */
-    {.i = 0, .j = 0, .k = 0},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
     /* Negatively charged */
-    {.i = 0, .j = 0, .k = 0},
-    {.i = 0, .j = 0, .k = 0},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
 };
 
 static const vector3d_t initial_orientation[P_COUNT+E_COUNT] = {
     /* Positively charged */
-    {.i = 0, .j = 0, .k = 0},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
     /* Negatively charged */
-    {.i = 0, .j = 0, .k = 0},
-    {.i = 0, .j = 0, .k = 0},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
 };
 
 static const vector3d_t initial_angular_momentum[P_COUNT+E_COUNT] = {
     /* Positively charged */
-    {.i = 0, .j = 0, .k = 0},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
     /* Negatively charged */
-    {.i = 0, .j = 0, .k = 0},
-    {.i = 0, .j = 0, .k = 0},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
+    {.i = 0.0f, .j = 0.0f, .k = 0.0f},
 };
 
 

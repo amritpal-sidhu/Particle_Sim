@@ -3,18 +3,6 @@
 
 // #define __USE_GRAVITY
 
-#define PROTON_CHARGE       1.602E-19f  // Coulombs
-#define ELECTRON_CHARGE     -1.602E-19f
-
-#define PROTON_MASS         1.6727E-24f // Grams
-#define NEUTRON_MASS        1.675E-24f
-#define ELECTRON_MASS       9.11E-28f
-
-/* Based on Wikipedia covalent radi */
-#define HELIUM_NUCLEUS_RADIUS   28E-12f     // Meters
-#define ELECTRON_RADIUS         10E-15f     // Meters
-#define FAKE_NUCLEUS_RADIUS     0.1f
-
 #define LOCAL_EPSILON               1E-38f
 
 #define UNIVERSAL_GRAVITY_CONST     6.6743E-17f // (N*m^2)/(g^2)
@@ -22,7 +10,9 @@
 
 struct vector3d_t
 {
-    float x, y, z;
+    float x;
+    float y;
+    float z;
 };
 
 struct particle_t
@@ -35,16 +25,16 @@ struct particle_t
     float mass;
     float charge;
     float radius;
-};
+};                              
 
 /* variables */
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-layout(binding = 0) buffer particle_data_block
+layout(std430, binding = 0) buffer particle_data_block
 {
-    particle_t particles[];    
+    uint index;
+    float sample_period;
+    particle_t particles[];
 };
-layout(location = 0) uniform uint id;
-layout(location = 1) uniform float sample_period;
 
 
 /* Local function prototypes */
@@ -74,8 +64,8 @@ void update_momentum(const vec3 F);
 void update_position();
 void update_orientation();
 vec3 resultant_force_from_fields();
-void elastic_collision_linear_momentum_update(const uint this_id, const uint that_id);
-void update_angular_momentum_after_collision(const uint this_id, const uint that_id);
+void elastic_collision_linear_momentum_update(const uint that_index);
+void update_angular_momentum_after_collision(const uint that_index);
 void time_evolution();
 
 
@@ -154,66 +144,66 @@ bool detect_collision(const particle_t this_part, const particle_t that_part)
 
 void update_momentum(const vec3 F)
 {
-    vec3 momentum = vec3(particles[id].momentum.x, particles[id].momentum.y, particles[id].momentum.z);
+    vec3 momentum = vec3(particles[index].momentum.x, particles[index].momentum.y, particles[index].momentum.z);
 
     momentum += (F * sample_period);
 
-    particles[id].momentum.x = momentum.x;
-    particles[id].momentum.y = momentum.y;
-    particles[id].momentum.z = momentum.z;
+    particles[index].momentum.x = momentum.x;
+    particles[index].momentum.y = momentum.y;
+    particles[index].momentum.z = momentum.z;
 }
 
 void update_position()
 {
-    vec3 pos = vec3(particles[id].pos.x, particles[id].pos.y, particles[id].pos.z);
-    const vec3 momentum = vec3(particles[id].momentum.x, particles[id].momentum.y, particles[id].momentum.z);
+    vec3 pos = vec3(particles[index].pos.x, particles[index].pos.y, particles[index].pos.z);
+    const vec3 momentum = vec3(particles[index].momentum.x, particles[index].momentum.y, particles[index].momentum.z);
     
-    const vec3 change_in_velocity = momentum * (1 / particles[id].mass);
+    const vec3 change_in_velocity = momentum * (1 / particles[index].mass);
     pos += (change_in_velocity * sample_period);
 
-    particles[id].pos.x = pos.x;
-    particles[id].pos.y = pos.y;
-    particles[id].pos.z = pos.z;
+    particles[index].pos.x = pos.x;
+    particles[index].pos.y = pos.y;
+    particles[index].pos.z = pos.z;
 }
 
 void update_orientation()
 {
-    vec3 orientation = vec3(particles[id].orientation.x, particles[id].orientation.y, particles[id].orientation.z);
-    const vec3 angular_momentum = vec3(particles[id].angular_momentum.x, particles[id].angular_momentum.y, particles[id].angular_momentum.z);
+    vec3 orientation = vec3(particles[index].orientation.x, particles[index].orientation.y, particles[index].orientation.z);
+    const vec3 angular_momentum = vec3(particles[index].angular_momentum.x, particles[index].angular_momentum.y, particles[index].angular_momentum.z);
 
     /**
      * Moment of inertia of a sphere about its axis is 4/5 M R^2
      * with respect to its surface is 7/5 M R^2
      */
-    const float moment_of_inertia_of_a_sphere = 1.4 * particles[id].mass * particles[id].radius * particles[id].radius;
+    const float moment_of_inertia_of_a_sphere = 1.4 * particles[index].mass * particles[index].radius * particles[index].radius;
     const vec3 change_in_orientation = angular_momentum * (1 / moment_of_inertia_of_a_sphere);
     orientation *= (change_in_orientation * sample_period);
 
-    particles[id].orientation.x = orientation.x;
-    particles[id].orientation.y = orientation.y;
-    particles[id].orientation.z = orientation.z;
+    particles[index].orientation.x = orientation.x;
+    particles[index].orientation.y = orientation.y;
+    particles[index].orientation.z = orientation.z;
 }
 
 vec3 resultant_force_from_fields()
 {
-    vec3 F_resultant = vec3(0,0,0);
-    const vec3 this_pos = vec3(particles[id].pos.x, particles[id].pos.y, particles[id].pos.z);
+    vec3 F_resultant;
+    const vec3 this_pos = vec3(particles[index].pos.x, particles[index].pos.y, particles[index].pos.z);
 
     /* Try to find a time improvement to compute all forces acting on current particle */
-    for (uint that_id = 0; that_id < particles.length(); ++that_id) {
+    for (uint that_index = 0; that_index < particles.length(); ++that_index) {
 
-        if (particles[id].id == particles[that_id].id) continue;
+        if (particles[index].id == particles[that_index].id) continue;
 
-        const vec3 that_pos = vec3(particles[that_id].pos.x, particles[that_id].pos.y, particles[that_id].pos.z);
-        const float r = distance(particles[id].pos, particles[that_id].pos);
+        const vec3 that_pos = vec3(particles[that_index].pos.x, particles[that_index].pos.y, particles[that_index].pos.z);
+        const float r = distance(particles[index].pos, particles[that_index].pos);
 
         F_resultant += componentize_force_3d(
-                        electric_force(particles[id].charge, particles[that_id].charge, r),
+                        electric_force(particles[index].charge, particles[that_index].charge, r),
                                       (this_pos - that_pos));
 
         #ifdef __USE_GRAVITY
         F_resultant +=  componentize_force_3d(
-                            gravitational_force(particles[id].mass, particles[that_id].mass, r),
+                            gravitational_force(particles[index].mass, particles[that_index].mass, r),
                                                (this_pos - that_pos));
         #endif
     }
@@ -232,57 +222,57 @@ vec3 resultant_force_from_fields()
  * V2f = --------- * V1i + --------- * V2i
  *       (m1 + m2)         (m1 + m2)
  */
-void elastic_collision_linear_momentum_update(const uint this_id, const uint that_id)
+void elastic_collision_linear_momentum_update(const uint that_index)
 {
-    const vec3 this_momentum = vec3(particles[this_id].momentum.x, particles[this_id].momentum.y, particles[this_id].momentum.z);
-    const vec3 that_momentum = vec3(particles[that_id].momentum.x, particles[that_id].momentum.y, particles[that_id].momentum.z);
+    const vec3 this_momentum = vec3(particles[index].momentum.x, particles[index].momentum.y, particles[index].momentum.z);
+    const vec3 that_momentum = vec3(particles[that_index].momentum.x, particles[that_index].momentum.y, particles[that_index].momentum.z);
 
-    const vec3 Vi_this = this_momentum * (1 / particles[this_id].mass);
-    const vec3 Vi_that = that_momentum * (1 / particles[that_id].mass);
+    const vec3 Vi_this = this_momentum * (1 / particles[index].mass);
+    const vec3 Vi_that = that_momentum * (1 / particles[that_index].mass);
 
-    const float total_mass = particles[this_id].mass + particles[that_id].mass;
-    const float mass_diff = particles[this_id].mass - particles[that_id].mass;
+    const float total_mass = particles[index].mass + particles[that_index].mass;
+    const float mass_diff = particles[index].mass - particles[that_index].mass;
 
-    const vec3 Vf_this = (Vi_this * mass_diff/total_mass) + (Vi_that * 2*particles[that_id].mass/total_mass);
+    const vec3 Vf_this = (Vi_this * mass_diff/total_mass) + (Vi_that * 2*particles[that_index].mass/total_mass);
 
-    const vec3 Vf_that = (Vi_this * 2*particles[this_id].mass/total_mass) + (Vi_that * -mass_diff/total_mass);
+    const vec3 Vf_that = (Vi_this * 2*particles[index].mass/total_mass) + (Vi_that * -mass_diff/total_mass);
 
-    const vec3 this_result_momentum = Vf_this * particles[this_id].mass;
-    const vec3 that_result_momentum = Vf_that * particles[that_id].mass;
+    const vec3 this_result_momentum = Vf_this * particles[index].mass;
+    const vec3 that_result_momentum = Vf_that * particles[that_index].mass;
 
-    particles[this_id].momentum.x = this_result_momentum.x;
-    particles[this_id].momentum.y = this_result_momentum.y;
-    particles[this_id].momentum.z = this_result_momentum.z;
-    particles[that_id].momentum.x = that_result_momentum.x;
-    particles[that_id].momentum.y = that_result_momentum.y;
-    particles[that_id].momentum.z = that_result_momentum.z;
+    particles[index].momentum.x = this_result_momentum.x;
+    particles[index].momentum.y = this_result_momentum.y;
+    particles[index].momentum.z = this_result_momentum.z;
+    particles[that_index].momentum.x = that_result_momentum.x;
+    particles[that_index].momentum.y = that_result_momentum.y;
+    particles[that_index].momentum.z = that_result_momentum.z;
 }
 
 /**
  * NOTE: Angular momentum is not being conserved along with linear momentum
  *       this way.  This is a placeholder.
  */
-void update_angular_momentum_after_collision(const uint this_id, const uint that_id)
+void update_angular_momentum_after_collision(const uint that_index)
 {
-    const vec3 this_pos = vec3(particles[this_id].pos.x, particles[this_id].pos.y, particles[this_id].pos.z);
-    const vec3 that_pos = vec3(particles[that_id].pos.x, particles[that_id].pos.y, particles[that_id].pos.z);
-    const vec3 this_momentum = vec3(particles[this_id].momentum.x, particles[this_id].momentum.y, particles[this_id].momentum.z);
-    const vec3 that_momentum = vec3(particles[that_id].momentum.x, particles[that_id].momentum.y, particles[that_id].momentum.z);
+    const vec3 this_pos = vec3(particles[index].pos.x, particles[index].pos.y, particles[index].pos.z);
+    const vec3 that_pos = vec3(particles[that_index].pos.x, particles[that_index].pos.y, particles[that_index].pos.z);
+    const vec3 this_momentum = vec3(particles[index].momentum.x, particles[index].momentum.y, particles[index].momentum.z);
+    const vec3 that_momentum = vec3(particles[that_index].momentum.x, particles[that_index].momentum.y, particles[that_index].momentum.z);
 
     const vec3 this_to_that_distance = that_pos - this_pos;
     const vec3 that_to_this_distance = -1 * this_to_that_distance;
-    const vec3 r_this_to_that = this_to_that_distance * particles[this_id].radius / length(this_to_that_distance);
-    const vec3 r_that_to_this = that_to_this_distance * particles[that_id].radius / length(that_to_this_distance);
+    const vec3 r_this_to_that = this_to_that_distance * particles[index].radius / length(this_to_that_distance);
+    const vec3 r_that_to_this = that_to_this_distance * particles[that_index].radius / length(that_to_this_distance);
 
     const vec3 this_angular_momentum = cross(r_that_to_this, that_momentum);
     const vec3 that_angular_momentum = cross(r_this_to_that, this_momentum);
 
-    particles[this_id].angular_momentum.x = this_angular_momentum.x;
-    particles[this_id].angular_momentum.y = this_angular_momentum.y;
-    particles[this_id].angular_momentum.z = this_angular_momentum.z;
-    particles[that_id].angular_momentum.x = that_angular_momentum.x;
-    particles[that_id].angular_momentum.y = that_angular_momentum.y;
-    particles[that_id].angular_momentum.z = that_angular_momentum.z;
+    particles[index].angular_momentum.x = this_angular_momentum.x;
+    particles[index].angular_momentum.y = this_angular_momentum.y;
+    particles[index].angular_momentum.z = this_angular_momentum.z;
+    particles[that_index].angular_momentum.x = that_angular_momentum.x;
+    particles[that_index].angular_momentum.y = that_angular_momentum.y;
+    particles[that_index].angular_momentum.z = that_angular_momentum.z;
 }
 
 
@@ -293,17 +283,17 @@ void time_evolution()
     update_orientation();
 
     /* Simple check for collision with another particle and perform momentum update */
-    for (uint that_id = 0; that_id < particles.length(); ++that_id) {
+    for (uint that_index = 0; that_index < particles.length(); ++that_index) {
         
-        if (particles[id].id == particles[that_id].id) continue;
+        if (particles[index].id == particles[that_index].id) continue;
 
-        if (detect_collision(particles[id], particles[that_id])) {
+        if (detect_collision(particles[index], particles[that_index])) {
 
             /* Unconserved angular momentum portion */
-            update_angular_momentum_after_collision(id, that_id);
+            update_angular_momentum_after_collision(that_index);
             update_orientation();
 
-            elastic_collision_linear_momentum_update(id, that_id);
+            elastic_collision_linear_momentum_update(that_index);
             update_position();
         }
     }

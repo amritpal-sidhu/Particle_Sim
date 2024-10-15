@@ -16,7 +16,7 @@ static void render_loop(GLFWwindow *window);
 log_t *log_handle;
 particle_t *particles[P_COUNT+E_COUNT];
 /* View scalar initial value determined from experimentation, but not sure it's source */
-struct render_data_s rdata = {.num_segments = NUM_SEGMENTS, .view_scalar = 10E-20};
+struct render_data_s rdata = {.num_segments = NUM_SEGMENTS, .view_scalar = 10E-20f};
 
 
 int main(void)
@@ -52,21 +52,17 @@ int main(void)
     ERROR_CHECK(shader_compile_and_link(&rdata), exit(EXIT_FAILURE), LOG_ERROR, "shader_compile_and_link() failed");
 
     /**
-     * initialize vertex buffer objects which contain the vertices of
-     * a nucleous and an electron
+     * initialize buffer objects
      */
-    vertex_buffer_init(&rdata.VBO[P_BUF], p_vertices, sizeof(p_vertices));
-    vertex_buffer_init(&rdata.VBO[E_BUF], e_vertices, sizeof(e_vertices));
+    vertex_buffer_init(&rdata, P_BUF, p_vertices, NUM_SEGMENTS);
+    vertex_buffer_init(&rdata, E_BUF, e_vertices, NUM_SEGMENTS);
+    shader_storage_buffer_init(&rdata, *particles);
+    uniform_buffer_init(&rdata);
 
     /**
      * create and initialize a vertex array object
      */
     vertex_array_object_init(&rdata);
-
-    /**
-     * initialize shader storage buffer object with particle data
-     */
-    shader_storage_buffer_init(&rdata, *particles, sizeof(*particles));
 
  
 
@@ -99,7 +95,7 @@ static void render_loop(GLFWwindow *window)
 
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i) {
             render_particles(&rdata, i);
-            run_time_evolution_shader(&rdata, i, sample_period);
+            run_time_evolution_shader(&rdata, i);
         }
 
         glfwSwapBuffers(window);

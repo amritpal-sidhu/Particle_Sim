@@ -59,6 +59,7 @@ struct render_data_s
     GLuint UBO;
     GLuint SSBO;
     GLuint program[PROGRAM_COUNT];
+    unsigned char update_particles;
 };
 
 
@@ -83,16 +84,13 @@ static struct ssbo_info_s
 } ssbo_info;
 
 
-void vertex_buffer_init(struct render_data_s *rdata, const buffer_index_e buf, void *data, const size_t size);
-void shader_storage_buffer_init(struct render_data_s *rdata, void *particle_data);
-void uniform_buffer_init(struct render_data_s *rdata);
+void buffer_objects_init(struct render_data_s *rdata, void *p_verts, void *e_verts, void *particle_data);
 void vertex_array_object_init(struct render_data_s *rdata);
-void bind_vertex_array(const struct render_data_s *rdata);
 
 int shader_compile_and_link(struct render_data_s *rdata);
 int shader_compile_and_link_spir_v(struct render_data_s *rdata);
-void render_particles(const struct render_data_s *rdata, const unsigned int particle_index);
-void run_time_evolution_shader(const struct render_data_s *rdata, const unsigned int particle_index);
+void render_particles(struct render_data_s *rdata, const unsigned int particle_index, void *particle_data);
+void run_time_evolution_shader(struct render_data_s *rdata, const unsigned int particle_index, void *particle_data);
 
 void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color);
 void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const float r, const int num_y_segments, const int num_z_segments, const color_t color);

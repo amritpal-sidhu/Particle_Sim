@@ -7,10 +7,12 @@
 #include "common.h"
 
 
+// #define __LOG_BLOCK_INTERFACE_ALIGNMENTS
+
 #define SHADER_COUNT    3
 #define COMPUTE_SHADER_FILEPATH     "shaders/time_evolution.comp.glsl"
-#define VERTEX_SHADER_FILEPATH      "shaders/vs.vert.glsl"
-#define FRAGMENT_SHADER_FILEPATH    "shaders/fs.frag.glsl"
+#define VERTEX_SHADER_FILEPATH      "shaders/rasterization.vert.glsl"
+#define FRAGMENT_SHADER_FILEPATH    "shaders/rasterization.frag.glsl"
 
 enum shader_e {
     COMP,
@@ -42,7 +44,218 @@ const color_t p_color = (color_t){.r = 1.0f, .g = 0.0f, .b = 0.0f};
 const color_t e_color = (color_t){.r = 0.0f, .g = 0.0f, .b = 1.0f};
 
 
+/* Private function prototypes */
+static void vertex_buffer_init(struct render_data_s *rdata, const buffer_index_e buf, void *data);
+static void shader_storage_buffer_init(struct render_data_s *rdata, void *particle_data);
+static void uniform_buffer_init(struct render_data_s *rdata);
+static void bind_vertex_array(const struct render_data_s *rdata);
+static GLchar *shader_type_to_name(const enum shader_e type);
+static GLchar *program_type_to_name(const program_e type);
+static GLchar *get_shader_text(const enum shader_e type, size_t *text_len);
+static GLuint check_shader_build_status(const enum shader_build_e stage, const GLuint obj_ref);
+static GLuint compile_shader(const enum shader_e type);
+static GLuint compile_shader_spir_v(const enum shader_e type);
+static GLuint link_shader(const GLuint *shaders, const size_t s_size);
+static void get_program_buffer_block_names_and_offsets(const GLuint program, const GLenum buf_interface, const enum shader_e s);
+static void get_ssbo_info(struct ssbo_info_s *info, const struct render_data_s *rdata);
+static void get_ubo_info(struct ubo_info_s *info, const struct render_data_s *rdata);
+
+
+/* Public function definitions */
+int shader_compile_and_link(struct render_data_s *rdata)
+{
+    GLuint shaders[SHADER_COUNT];
+    int retval = EXIT_SUCCESS;
+
+    /* get the shader source and compile */
+    for (enum shader_e s = VERT; s <= FRAG; ++s)
+        ERROR_CHECK(!(shaders[s]=compile_shader(s)),
+                    exit(EXIT_FAILURE), LOG_ERROR, "Compiling %s shader failed.", shader_type_to_name(s));
+
+    /* link programs */
+    for (program_e p = RASTER; p <= RASTER; ++p)
+        ERROR_CHECK(!(rdata->program[p]=link_shader(&shaders[p==RASTER?VERT:COMP], p==RASTER?SHADER_COUNT-1:1)),
+                    exit(EXIT_FAILURE), LOG_ERROR, "Linking %s shader failed.", program_type_to_name(p));
+    
+    /* clean up shader objects */
+    // glDetachShader(rdata->program[TIME_EVOLVE], shaders[COMP]);
+    // glDeleteShader(shaders[COMP]);
+    for (enum shader_e s = VERT; s <= FRAG; ++s) {
+        glDetachShader(rdata->program[RASTER], shaders[s]);
+        glDeleteShader(shaders[s]);
+    }
+
+    #ifdef __LOG_BLOCK_INTERFACE_ALIGNMENTS
+    // get_program_buffer_block_names_and_offsets(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, COMP);
+    get_program_buffer_block_names_and_offsets(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, VERT);
+    get_program_buffer_block_names_and_offsets(rdata->program[RASTER], GL_UNIFORM_BLOCK, VERT);
+    #endif
+
+    get_ssbo_info(&ssbo_info, rdata);
+    get_ubo_info(&ubo_info, rdata);
+
+    return retval;
+}
+
+int shader_compile_and_link_spir_v(struct render_data_s *rdata)
+{
+    GLuint shaders[SHADER_COUNT];
+
+    for (enum shader_e s = VERT; s <= FRAG; ++s) {
+        if (!(shaders[s]=compile_shader_spir_v(s)))
+            return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+void buffer_objects_init(struct render_data_s *rdata, void *p_verts, void *e_verts, void *particle_data)
+{
+    vertex_buffer_init(rdata, P_BUF, p_verts);
+    vertex_buffer_init(rdata, E_BUF, e_verts);
+    shader_storage_buffer_init(rdata, particle_data);
+    uniform_buffer_init(rdata);
+}
+
+void vertex_array_object_init(struct render_data_s *rdata)
+{
+    glGenVertexArrays(VBO_COUNT, rdata->VAO);
+    bind_vertex_array(rdata);
+}
+
+void render_particles(struct render_data_s *rdata, const unsigned int particle_index, void *particle_data)
+{
+    glUseProgram(rdata->program[RASTER]);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.index_offset, sizeof(unsigned int), &particle_index);
+    if (rdata->update_particles) {
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.particles_offset, sizeof(particle_t)*(P_COUNT+E_COUNT), particle_data);
+        rdata->update_particles = 0;
+    }
+    glBindBuffer(GL_UNIFORM_BUFFER, rdata->UBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.view_scalar_offset, sizeof(float), &rdata->view_scalar);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.view_ratio_offset, sizeof(float), &rdata->ratio);
+    glBindVertexArray(rdata->VAO[particle_index<P_COUNT?P_BUF:E_BUF]);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, rdata->num_segments);
+    glBindVertexArray(0);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+}
+
+void run_time_evolution_shader(struct render_data_s *rdata, const unsigned int particle_index, void *particle_data)
+{
+    glUseProgram(rdata->program[TIME_EVOLVE]);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.index_offset, 4, &particle_index);
+    if (rdata->update_particles) {
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.particles_offset, sizeof(particle_t)*(P_COUNT+E_COUNT), particle_data);
+        rdata->update_particles = 0;
+    }
+    glDispatchCompute(3, 1, 1);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color)
+{
+    for(unsigned int a = 0; a < num_segments; ++a) {
+        const float theta = 2.0f * PI * a / num_segments;
+
+        const float x = r * cosf(theta);
+        const float y = r * sinf(theta);
+
+        v[a].pos.i = x + center.i;
+        v[a].pos.j = y + center.j;
+        v[a].color = color;
+    }
+}
+
+void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const float r, const int num_y_segments, const int num_z_segments, const color_t color)
+{
+    v[0].pos.i = 0 + center.i;
+    v[0].pos.j = 0 + center.j;
+    v[0].pos.k = r + center.k;
+    v[0].color = color;
+
+    for (unsigned int a = 0; a < num_z_segments; ++a) {
+
+        const float phi = PI * (a+1) / num_z_segments;
+
+        for(unsigned int b = 0; b < num_y_segments; ++b) {
+
+            const unsigned int index = (num_z_segments * a) + b + 1;
+
+            const float theta = 2.0 * PI * b / num_y_segments;
+
+            const float x = r * cosf(theta) * sinf(phi);
+            const float y = r * sinf(theta) * sinf(phi);
+            const float z = r * cosf(phi);
+            
+            v[index].pos.i = x + center.i;
+            v[index].pos.j = y + center.j;
+            v[index].pos.k = z + center.k;
+            if (!(a % 2))
+                v[index].color = (color_t){1,1,1};
+            else
+                v[index].color = color;
+        }
+    }
+
+    v[num_z_segments*num_y_segments+1].pos.i = 0 + center.i;
+    v[num_z_segments*num_y_segments+1].pos.j = 0 + center.j;
+    v[num_z_segments*num_y_segments+1].pos.k = -r + center.k;
+    v[num_z_segments*num_y_segments+1].color = color;
+
+}
+
+
 /* Private function definitions */
+static void vertex_buffer_init(struct render_data_s *rdata, const buffer_index_e buf, void *data)
+{
+    glGenBuffers(1, &rdata->VBO[buf]);
+    glBindBuffer(GL_ARRAY_BUFFER, rdata->VBO[buf]);
+    glBufferData(GL_ARRAY_BUFFER, NUM_SEGMENTS, data, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+static void shader_storage_buffer_init(struct render_data_s *rdata, void *particle_data)
+{
+    glGenBuffers(1, &rdata->SSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo_info.size, NULL, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, SSBO_BINDING_POINT, rdata->SSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.sample_period_offset, sizeof(float), &sample_period);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.particles_offset, sizeof(particle_t)*(P_COUNT+E_COUNT), particle_data);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+static void uniform_buffer_init(struct render_data_s *rdata)
+{
+    glGenBuffers(1, &rdata->UBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, rdata->UBO);
+    glBufferData(GL_UNIFORM_BUFFER, ubo_info.size, NULL, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, UBO_BINDING_POINT, rdata->UBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
+static void bind_vertex_array(const struct render_data_s *rdata)
+{
+    for (buffer_index_e buf = P_BUF; buf <= E_BUF; ++buf) {
+
+        glBindVertexArray(rdata->VAO[buf]);
+        glBindVertexBuffer(buf, rdata->VBO[buf], 0, sizeof(struct vertex));
+        glEnableVertexAttribArray(VS_IN_POS_LOC);
+        glVertexAttribFormat(VS_IN_POS_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, pos));
+        glVertexAttribBinding(VS_IN_POS_LOC, buf);
+        glEnableVertexAttribArray(VS_IN_COLOR_LOC);
+        glVertexAttribFormat(VS_IN_COLOR_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, color));
+        glVertexAttribBinding(VS_IN_COLOR_LOC, buf);
+    }
+
+    glBindVertexArray(0);
+}
+
 static GLchar *shader_type_to_name(const enum shader_e type)
 {
     switch (type) {
@@ -178,7 +391,7 @@ static void get_program_buffer_block_names_and_offsets(const GLuint program, con
 
         /* get the resource index */
         GLuint resource_index = glGetProgramResourceIndex(program, buf_interface, resource_name);
-        log__write(log_handle, LOG_INFO, "%s shader's SSBO resource name: %s", shader_type_to_name(s), resource_name);
+        log__write(log_handle, LOG_INFO, "%s shader's resource name: %s", shader_type_to_name(s), resource_name);
 
         /* get the number of variables in the ssbo */
         glGetProgramResourceiv(program, buf_interface, resource_index, 1, &prop, 1, NULL, &num_var);
@@ -213,9 +426,9 @@ static void get_ssbo_info(struct ssbo_info_s *info, const struct render_data_s *
     GLchar *resource_name, *var_name;
 
     /* get the number of ssbos, the max length of the ssbo names, and the max length of variable names */
-    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &num_resources);
-    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &ssbo_max_len);
-    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, GL_MAX_NAME_LENGTH, &var_max_len);
+    glGetProgramInterfaceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &num_resources);
+    glGetProgramInterfaceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &ssbo_max_len);
+    glGetProgramInterfaceiv(rdata->program[RASTER], GL_BUFFER_VARIABLE, GL_MAX_NAME_LENGTH, &var_max_len);
     ERROR_CHECK(!(resource_name=malloc(ssbo_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
     ERROR_CHECK(!(var_name=malloc(var_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
 
@@ -225,24 +438,24 @@ static void get_ssbo_info(struct ssbo_info_s *info, const struct render_data_s *
 
         /* Get the ssbo name */
         prop = GL_NUM_ACTIVE_VARIABLES;
-        glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, i, ssbo_max_len, NULL, resource_name);
+        glGetProgramResourceName(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, i, ssbo_max_len, NULL, resource_name);
 
         /* get the resource index */
-        GLuint resource_index = glGetProgramResourceIndex(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_name);
+        GLuint resource_index = glGetProgramResourceIndex(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, resource_name);
 
         /* get the number of variables in the ssbo */
-        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &num_var);
+        glGetProgramResourceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &num_var);
         ERROR_CHECK(!(vars=malloc(num_var*sizeof(GLint))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
         
         /* get the active variables within the ssbo */
         prop = GL_ACTIVE_VARIABLES;
-        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, num_var, NULL, vars);
+        glGetProgramResourceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, num_var, NULL, vars);
 
         /* get and print to log the names and offsets for the ssbo variables */
         prop = GL_OFFSET;
         for (GLint j = 0; j < num_var; ++j) {
-            glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], 1, &prop, num_var, NULL, &offset);
-            glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], var_max_len, NULL, var_name);
+            glGetProgramResourceiv(rdata->program[RASTER], GL_BUFFER_VARIABLE, vars[j], 1, &prop, num_var, NULL, &offset);
+            glGetProgramResourceName(rdata->program[RASTER], GL_BUFFER_VARIABLE, vars[j], var_max_len, NULL, var_name);
 
             if (!strcmp(var_name, "index")) {
                 info->index_offset = offset;
@@ -256,7 +469,7 @@ static void get_ssbo_info(struct ssbo_info_s *info, const struct render_data_s *
         free(vars);
 
         prop = GL_BUFFER_DATA_SIZE;
-        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &info->size);
+        glGetProgramResourceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &info->size);
     }
 
     free(resource_name);
@@ -269,9 +482,9 @@ static void get_ubo_info(struct ubo_info_s *info, const struct render_data_s *rd
     GLchar *resource_name, *var_name;
 
     /* get the number of ssbos, the max length of the ssbo names, and the max length of variable names */
-    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &num_resources);
-    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &ssbo_max_len);
-    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, GL_MAX_NAME_LENGTH, &var_max_len);
+    glGetProgramInterfaceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &num_resources);
+    glGetProgramInterfaceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &ssbo_max_len);
+    glGetProgramInterfaceiv(rdata->program[RASTER], GL_BUFFER_VARIABLE, GL_MAX_NAME_LENGTH, &var_max_len);
     ERROR_CHECK(!(resource_name=malloc(ssbo_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
     ERROR_CHECK(!(var_name=malloc(var_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
 
@@ -281,24 +494,24 @@ static void get_ubo_info(struct ubo_info_s *info, const struct render_data_s *rd
 
         /* Get the ssbo name */
         prop = GL_NUM_ACTIVE_VARIABLES;
-        glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, i, ssbo_max_len, NULL, resource_name);
+        glGetProgramResourceName(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, i, ssbo_max_len, NULL, resource_name);
 
         /* get the resource index */
-        GLuint resource_index = glGetProgramResourceIndex(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_name);
+        GLuint resource_index = glGetProgramResourceIndex(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, resource_name);
 
         /* get the number of variables in the ssbo */
-        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &num_var);
+        glGetProgramResourceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &num_var);
         ERROR_CHECK(!(vars=malloc(num_var*sizeof(GLint))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
         
         /* get the active variables within the ssbo */
         prop = GL_ACTIVE_VARIABLES;
-        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, num_var, NULL, vars);
+        glGetProgramResourceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, num_var, NULL, vars);
 
         /* get and print to log the names and offsets for the ssbo variables */
         prop = GL_OFFSET;
         for (GLint j = 0; j < num_var; ++j) {
-            glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], 1, &prop, num_var, NULL, &offset);
-            glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], var_max_len, NULL, var_name);
+            glGetProgramResourceiv(rdata->program[RASTER], GL_BUFFER_VARIABLE, vars[j], 1, &prop, num_var, NULL, &offset);
+            glGetProgramResourceName(rdata->program[RASTER], GL_BUFFER_VARIABLE, vars[j], var_max_len, NULL, var_name);
 
             if (!strcmp(var_name, "view_scalar")) {
                 info->view_scalar_offset = offset;
@@ -310,187 +523,9 @@ static void get_ubo_info(struct ubo_info_s *info, const struct render_data_s *rd
         free(vars);
 
         prop = GL_BUFFER_DATA_SIZE;
-        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &info->size);
+        glGetProgramResourceiv(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &info->size);
     }
 
     free(resource_name);
     free(var_name);
-}
-
-/* Public function definitions */
-int shader_compile_and_link(struct render_data_s *rdata)
-{
-    GLuint shaders[SHADER_COUNT];
-    int retval = EXIT_SUCCESS;
-
-    /* get the shader source and compile */
-    for (enum shader_e s = COMP; s <= FRAG; ++s)
-        ERROR_CHECK(!(shaders[s]=compile_shader(s)),
-                    exit(EXIT_FAILURE), LOG_ERROR, "Compiling %s shader failed.", shader_type_to_name(s));
-
-    /* link programs */
-    for (program_e p = TIME_EVOLVE; p <= RASTER; ++p)
-        ERROR_CHECK(!(rdata->program[p]=link_shader(&shaders[p==RASTER?VERT:COMP], p==RASTER?SHADER_COUNT-1:1)),
-                    exit(EXIT_FAILURE), LOG_ERROR, "Linking %s shader failed.", program_type_to_name(p));
-    
-    /* clean up shader objects */
-    glDetachShader(rdata->program[TIME_EVOLVE], shaders[COMP]);
-    glDeleteShader(shaders[COMP]);
-    for (enum shader_e s = VERT; s <= FRAG; ++s) {
-        glDetachShader(rdata->program[RASTER], shaders[s]);
-        glDeleteShader(shaders[s]);
-    }
-
-    get_program_buffer_block_names_and_offsets(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, COMP);
-    get_program_buffer_block_names_and_offsets(rdata->program[RASTER], GL_SHADER_STORAGE_BLOCK, VERT);
-    get_program_buffer_block_names_and_offsets(rdata->program[RASTER], GL_UNIFORM_BLOCK, VERT);
-
-    get_ssbo_info(&ssbo_info, rdata);
-    get_ubo_info(&ubo_info, rdata);
-
-    return retval;
-}
-
-int shader_compile_and_link_spir_v(struct render_data_s *rdata)
-{
-    GLuint shaders[SHADER_COUNT];
-
-    for (enum shader_e s = VERT; s <= FRAG; ++s) {
-        if (!(shaders[s]=compile_shader_spir_v(s)))
-            return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
-}
-
-void vertex_buffer_init(struct render_data_s *rdata, const buffer_index_e buf, void *data, const size_t size)
-{
-    glGenBuffers(1, &rdata->VBO[buf]);
-    glBindBuffer(GL_ARRAY_BUFFER, rdata->VBO[buf]);
-    glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
-void shader_storage_buffer_init(struct render_data_s *rdata, void *particle_data)
-{
-    glGenBuffers(1, &rdata->SSBO);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, (ssbo_info.size-8)*(P_COUNT+E_COUNT)+8, NULL, GL_DYNAMIC_COPY);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, SSBO_BINDING_POINT, rdata->SSBO);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.sample_period_offset, sizeof(float), &sample_period);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.particles_offset, sizeof(particle_t)*(P_COUNT+E_COUNT), particle_data);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-    
-
-}
-
-void uniform_buffer_init(struct render_data_s *rdata)
-{
-    glGenBuffers(1, &rdata->UBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, rdata->UBO);
-    glBufferData(GL_UNIFORM_BUFFER, ubo_info.size, NULL, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, UBO_BINDING_POINT, rdata->UBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-}
-
-void vertex_array_object_init(struct render_data_s *rdata)
-{
-    glGenVertexArrays(VBO_COUNT, rdata->VAO);
-    bind_vertex_array(rdata);
-}
-
-void bind_vertex_array(const struct render_data_s *rdata)
-{
-    for (buffer_index_e buf = P_BUF; buf <= E_BUF; ++buf) {
-
-        glBindVertexArray(rdata->VAO[buf]);
-        glBindVertexBuffer(buf, rdata->VBO[buf], 0, sizeof(struct vertex));
-        glEnableVertexAttribArray(VS_IN_POS_LOC);
-        glVertexAttribFormat(VS_IN_POS_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, pos));
-        glVertexAttribBinding(VS_IN_POS_LOC, buf);
-        glEnableVertexAttribArray(VS_IN_COLOR_LOC);
-        glVertexAttribFormat(VS_IN_COLOR_LOC, 3, GL_FLOAT, GL_FALSE, offsetof(struct vertex, color));
-        glVertexAttribBinding(VS_IN_COLOR_LOC, buf);
-    }
-
-    glBindVertexArray(0);
-}
-
-void render_particles(const struct render_data_s *rdata, const unsigned int particle_index)
-{
-    glUseProgram(rdata->program[RASTER]);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.index_offset, sizeof(unsigned int), &particle_index);
-    glBindBuffer(GL_UNIFORM_BUFFER, rdata->UBO);
-    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.view_scalar_offset, sizeof(float), &rdata->view_scalar);
-    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.view_ratio_offset, sizeof(float), &rdata->ratio);
-    glBindVertexArray(rdata->VAO[particle_index<P_COUNT?P_BUF:E_BUF]);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, rdata->num_segments);
-    glBindVertexArray(0);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-}
-
-void run_time_evolution_shader(const struct render_data_s *rdata, const unsigned int particle_index)
-{
-    glUseProgram(rdata->program[TIME_EVOLVE]);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.index_offset, 4, &particle_index);
-    glDispatchCompute(3, 3, 3);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-}
-
-void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color)
-{
-    for(unsigned int a = 0; a < num_segments; ++a) {
-        const float theta = 2.0f * PI * a / num_segments;
-
-        const float x = r * cos(theta);
-        const float y = r * sin(theta);
-
-        v[a].pos.i = x + center.i;
-        v[a].pos.j = y + center.j;
-        v[a].color = color;
-    }
-}
-
-void create_sphere_vertex_array(struct vertex *v, const vector3d_t center, const float r, const int num_y_segments, const int num_z_segments, const color_t color)
-{
-    v[0].pos.i = 0 + center.i;
-    v[0].pos.j = 0 + center.j;
-    v[0].pos.k = r + center.k;
-    v[0].color = color;
-
-    for (unsigned int a = 0; a < num_z_segments; ++a) {
-
-        const float phi = PI * (a+1) / num_z_segments;
-
-        for(unsigned int b = 0; b < num_y_segments; ++b) {
-
-            const unsigned int index = (num_z_segments * a) + b + 1;
-
-            const float theta = 2.0 * PI * b / num_y_segments;
-
-            const float x = r * cos(theta) * sin(phi);
-            const float y = r * sin(theta) * sin(phi);
-            const float z = r * cos(phi);
-            
-            v[index].pos.i = x + center.i;
-            v[index].pos.j = y + center.j;
-            v[index].pos.k = z + center.k;
-            if (!(a % 2))
-                v[index].color = (color_t){1,1,1};
-            else
-                v[index].color = color;
-        }
-    }
-
-    v[num_z_segments*num_y_segments+1].pos.i = 0 + center.i;
-    v[num_z_segments*num_y_segments+1].pos.j = 0 + center.j;
-    v[num_z_segments*num_y_segments+1].pos.k = -r + center.k;
-    v[num_z_segments*num_y_segments+1].color = color;
-
 }

@@ -74,25 +74,28 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     // reset particle locations... but not momenta!
     case GLFW_KEY_E:
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
-            particles[i]->pos = initial_pos[i];
+            particles[i].pos = initial_pos[i];
+        rdata.update_particles = 1;
         break;
 
     // reset particle locations and momenta
     case GLFW_KEY_R:
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i) {
-            particles[i]->pos = initial_pos[i];
-            particles[i]->momenta = initial_momentum[i];
+            particles[i].pos = initial_pos[i];
+            particles[i].momenta = initial_momentum[i];
         }
+        rdata.update_particles = 1;
         break;
 
     // reset particle locations and momenta as well as orientation and angular momentum
     case GLFW_KEY_T:
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i) {
-            particles[i]->pos = initial_pos[i];
-            particles[i]->momenta = initial_momentum[i];
-            particles[i]->orientation = initial_orientation[i];
-            particles[i]->angular_momenta = initial_angular_momentum[i];
+            particles[i].pos = initial_pos[i];
+            particles[i].momenta = initial_momentum[i];
+            particles[i].orientation = initial_orientation[i];
+            particles[i].angular_momenta = initial_angular_momentum[i];
         }
+        rdata.update_particles = 1;
         break;
 
     default:

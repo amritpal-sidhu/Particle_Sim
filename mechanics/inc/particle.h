@@ -30,8 +30,7 @@ typedef struct
 } particle_t;
 
 
-particle_t *particle__new(const unsigned long long int id,
+void particle__init(particle_t *p, const unsigned long long int id,
                           const vector3d_t initial_pos, const vector3d_t initial_momentum,
                           const vector3d_t initial_orientation, const vector3d_t initial_angular_momentum,
                           const float mass, const float charge, const float radius);
-void particle__delete(particle_t *p);

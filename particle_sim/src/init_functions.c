@@ -22,7 +22,7 @@ void create_particle_vertices(struct vertex *p_vertices, struct vertex *e_vertic
     create_circle_vertex_array(e_vertices, circle_center, FAKE_NUCLEUS_RADIUS/8, CIRCLE_Y_SEGMENTS, e_color);
     #endif
 
-    #ifdef LOG_DATA
+    #ifdef WRITE_LOG_DATA
     for (int i = 0; i < NUM_SEGMENTS; ++i)
         log__write(log_handle, LOG_DATA, "p_vertex[%i] = <%.3f,%.3f,%.3f>", i, p_vertices[i].pos.i, p_vertices[i].pos.j, p_vertices[i].pos.k);
 
@@ -30,7 +30,7 @@ void create_particle_vertices(struct vertex *p_vertices, struct vertex *e_vertic
     #endif
 }
 
-void create_particle_objects(particle_t **particles)
+void create_particle_objects(particle_t *particles)
 {
     /**
      * Creation of particle struct
@@ -41,12 +41,12 @@ void create_particle_objects(particle_t **particles)
      * further complicating this simulation.  Something to work on in the future.
      */
     for (size_t i = 0; i < P_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE, FAKE_NUCLEUS_RADIUS);
+        particle__init(particles, i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE, FAKE_NUCLEUS_RADIUS);
     for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
-        particles[i] = particle__new(i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE, FAKE_NUCLEUS_RADIUS/8);
+        particle__init(particles, i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE, FAKE_NUCLEUS_RADIUS/8);
 }
 
-void init_opengl_libraries(GLFWwindow **window)
+void opengl_libraries_init(GLFWwindow **window)
 {
     const int initial_window_width = 1280;
     const int initial_window_height = 960;
@@ -142,9 +142,6 @@ void clean_program(GLFWwindow *window)
     glDeleteBuffers(VBO_COUNT, rdata.VAO);
     glDeleteBuffers(1, &rdata.SSBO);
     glDeleteBuffers(1, &rdata.UBO);
-
-    for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
-        particle__delete(particles[i]);
 
     log__write(log_handle, LOG_STATUS, "Program terminated correctly.");
     log__close(log_handle);

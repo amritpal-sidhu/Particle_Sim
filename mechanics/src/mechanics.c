@@ -96,7 +96,7 @@ void time_evolution(particle_t **particles, const size_t particle_count, const d
             }
         }
 
-        #ifdef LOG_DATA
+        #ifdef WRITE_LOG_DATA
         log__write(log_handle, LOG_DATA, "%i,%E,%E,%E,%E,%E,%f,%f,%f,%E,%E,%E,%f,%f,%f",
         particles[this]->id, particles[this]->mass, particles[this]->charge, 
         particles[this]->momenta.i, particles[this]->momenta.j, particles[this]->momenta.k,
@@ -106,7 +106,7 @@ void time_evolution(particle_t **particles, const size_t particle_count, const d
         #endif
     }
 
-    #ifdef LOG_DATA
+    #ifdef WRITE_LOG_DATA
     log__write(log_handle, LOG_NONE, "");
     #endif
 }

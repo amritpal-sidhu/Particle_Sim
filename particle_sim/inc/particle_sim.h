@@ -57,14 +57,14 @@ static const vector3d_t initial_angular_momentum[P_COUNT+E_COUNT] = {
 
 
 extern log_t *log_handle;
-extern particle_t *particles[P_COUNT+E_COUNT];
+extern particle_t particles[P_COUNT+E_COUNT];
 extern struct render_data_s rdata;
 
 
-void init_opengl_libraries(GLFWwindow **window);
+void opengl_libraries_init(GLFWwindow **window);
 
 void create_particle_vertices(struct vertex *p_vertices, struct vertex *e_vertices);
-void create_particle_objects(particle_t **particles);
+void create_particle_objects(particle_t *particles);
 
 void clean_program(GLFWwindow *window);
 

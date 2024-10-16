@@ -14,9 +14,9 @@ static void render_loop(GLFWwindow *window);
 
 /* Global variables */
 log_t *log_handle;
-particle_t *particles[P_COUNT+E_COUNT];
+particle_t particles[P_COUNT+E_COUNT];
 /* View scalar initial value determined from experimentation, but not sure it's source */
-struct render_data_s rdata = {.num_segments = NUM_SEGMENTS, .view_scalar = 10E-20f};
+struct render_data_s rdata = {.num_segments = NUM_SEGMENTS, .view_scalar = 10E-20f, .update_particles = 0};
 
 
 int main(void)
@@ -27,45 +27,29 @@ int main(void)
     GLFWwindow *window;
 
 
-    /**
-     * open log file
-     */
+    /* open log file */
     if (!(log_handle=log__open(DEBUG_OUTPUT_FILEPATH, "w"))) {
         fprintf(stderr, "%s:%u: log__open() failed\n", __FILE__, __LINE__);
         exit(EXIT_FAILURE);
     }
 
-    /**
-     * initialize glfw and glad
-     */
-    init_opengl_libraries(&window);
+    /* initialize glfw and glad */
+    opengl_libraries_init(&window);
 
-    /**
-     * initialize particle buffers
-     */
+    /* initialize particle buffers */
     create_particle_vertices(p_vertices, e_vertices);
     create_particle_objects(particles);
 
-    /**
-     * compile and link shaders and create buffer objects
-     */
+    /* compile and link shaders */
     shader_compile_and_link(&rdata);
 
-    /**
-     * initialize buffer objects
-     */
-    vertex_buffer_init(&rdata, P_BUF, p_vertices, NUM_SEGMENTS);
-    vertex_buffer_init(&rdata, E_BUF, e_vertices, NUM_SEGMENTS);
-    shader_storage_buffer_init(&rdata, *particles);
-    uniform_buffer_init(&rdata);
+    /* initialize buffer objects */
+    buffer_objects_init(&rdata, p_vertices, e_vertices, particles);
 
-    /**
-     * create and initialize a vertex array object
-     */
+    /* create and initialize a vertex array object */
     vertex_array_object_init(&rdata);
 
- 
-
+    /* run main render loop and clean program on program termination */
     render_loop(window);
     clean_program(window);
 
@@ -94,8 +78,8 @@ static void render_loop(GLFWwindow *window)
         glClear(GL_COLOR_BUFFER_BIT);
 
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i) {
-            render_particles(&rdata, i);
-            run_time_evolution_shader(&rdata, i);
+            render_particles(&rdata, i, particles);
+            // run_time_evolution_shader(&rdata, i, particles);
         }
 
         glfwSwapBuffers(window);

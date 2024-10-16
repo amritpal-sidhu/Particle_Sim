@@ -1,5 +1,14 @@
 #version 460 core
 
+
+// #define __USE_GRAVITY
+
+#define LOCAL_EPSILON               1E-38f
+
+#define UNIVERSAL_GRAVITY_CONST     6.6743E-17f // (N*m^2)/(g^2)
+#define COULOMB_CONST               8.9875E9f  // (N*m^2)/(C^2)
+
+
 struct vector3d_t
 {
     float x;
@@ -42,6 +51,27 @@ out VS_OUT
 
 
 /* Private function prototypes */
+/**
+ * overloaded GLSL functions for vector3d_t
+ */
+float distance(const vector3d_t v0, const vector3d_t v1);
+float length(const vector3d_t v);
+
+/**
+ * forcing functions
+ */
+float gravitational_force(const float m1, const float m2, float r);
+float electric_force(const float q1, const float q2, float r);
+
+/**
+ * functions to componentize force
+ */
+vec2 componentize_force_2d(const float F, const vec2 direction_vector);
+vec3 componentize_force_3d(const float F, const vec3 direction_vector);
+
+/**
+ * functions to update physical state
+ */
 mat4 mat4_identity();
 mat4 mat4_translate(const vector3d_t pos);
 mat4 mat4_rotate_X(const mat4 M, const float angle);
@@ -67,6 +97,8 @@ void main()
 
     gl_Position = mvp * vec4(in_pos, 1);
     vs_out.color = in_color;
+
+    // time_evolution();
 }
 
 

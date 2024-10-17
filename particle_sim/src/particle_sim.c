@@ -36,18 +36,18 @@ int main(void)
     /* initialize glfw and glad */
     opengl_libraries_init(&window);
 
-    /* initialize particle buffers */
-    create_particle_vertices(p_vertices, e_vertices);
-    create_particle_objects(particles);
-
     /* compile and link shaders */
     shader_compile_and_link(&rdata);
+
+    /* generate particle vertices and initial physics data */
+    create_particle_vertices(p_vertices, e_vertices);
+    create_particle_objects(particles);
 
     /* initialize buffer objects */
     buffer_objects_init(&rdata, p_vertices, e_vertices, particles);
 
     /* create and initialize a vertex array object */
-    vertex_array_object_init(&rdata);
+    vertex_array_object_init(&rdata, particles);
 
     /* run main render loop and clean program on program termination */
     render_loop(window);
@@ -67,23 +67,22 @@ static void render_loop(GLFWwindow *window)
 
     while (!glfwWindowShouldClose(window)) {
         
-        int width, height;
-
         loop_start_time = glfwGetTime();
  
-        glfwGetFramebufferSize(window, &width, &height);
-        rdata.ratio = (float)width / height;
+        glfwGetFramebufferSize(window, &rdata.width, &rdata.height);
 
-        glViewport(0, 0, width, height);
+        glViewport(0, 0, rdata.width, rdata.height);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        for (size_t i = 0; i < P_COUNT+E_COUNT; ++i) {
+        for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
             render_particles(&rdata, i, particles);
-            // run_time_evolution_shader(&rdata, i, particles);
-        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        // run_time_evolution_shader(&rdata, particles);
+        time_evolution(particles, P_COUNT+E_COUNT, sample_period);
+        rdata.update_particles = 1;
 
         double elapsed_time_usec = 1E6*(glfwGetTime()-loop_start_time);
         if (elapsed_time_usec < wait_time_usec)

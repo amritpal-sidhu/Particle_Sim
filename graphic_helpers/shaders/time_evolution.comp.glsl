@@ -28,14 +28,12 @@ struct particle_t
 };                              
 
 /* variables */
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-layout(binding = 0) buffer particle_data_block
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(std430, binding = 0) buffer particle_data_block
 {
-    uint index;
-    float sample_period;
     particle_t particles[];
 };
-
+layout(location = 0) uniform float sample_period;
 
 /* Local function prototypes */
 /**
@@ -60,19 +58,19 @@ vec3 componentize_force_3d(const float F, const vec3 direction_vector);
  * functions to update physical state
  */
 bool detect_collision(const particle_t this_part, const particle_t that_part);
-void update_momentum(const vec3 F);
-void update_position();
-void update_orientation();
-vec3 resultant_force_from_fields();
-void elastic_collision_linear_momentum_update(const uint that_index);
-void update_angular_momentum_after_collision(const uint that_index);
-void time_evolution();
+void update_momentum(const vec3 F, const uint index);
+void update_position(const uint index);
+void update_orientation(const uint index);
+vec3 resultant_force_from_fields(const uint index);
+void elastic_collision_linear_momentum_update(const uint index, const uint that_index);
+void update_angular_momentum_after_collision(const uint index, const uint that_index);
+void time_evolution(const uint index);
 
 
 /* main function */
 void main()
 {
-    time_evolution();
+    time_evolution(gl_WorkGroupID.x);
 }
 
 
@@ -142,7 +140,7 @@ bool detect_collision(const particle_t this_part, const particle_t that_part)
     return distance(this_part.pos, that_part.pos) < (this_part.radius + that_part.radius);
 }
 
-void update_momentum(const vec3 F)
+void update_momentum(const vec3 F, const uint index)
 {
     vec3 momentum = vec3(particles[index].momentum.x, particles[index].momentum.y, particles[index].momentum.z);
 
@@ -153,7 +151,7 @@ void update_momentum(const vec3 F)
     particles[index].momentum.z = momentum.z;
 }
 
-void update_position()
+void update_position(const uint index)
 {
     vec3 pos = vec3(particles[index].pos.x, particles[index].pos.y, particles[index].pos.z);
     const vec3 momentum = vec3(particles[index].momentum.x, particles[index].momentum.y, particles[index].momentum.z);
@@ -166,7 +164,7 @@ void update_position()
     particles[index].pos.z = pos.z;
 }
 
-void update_orientation()
+void update_orientation(const uint index)
 {
     vec3 orientation = vec3(particles[index].orientation.x, particles[index].orientation.y, particles[index].orientation.z);
     const vec3 angular_momentum = vec3(particles[index].angular_momentum.x, particles[index].angular_momentum.y, particles[index].angular_momentum.z);
@@ -184,7 +182,7 @@ void update_orientation()
     particles[index].orientation.z = orientation.z;
 }
 
-vec3 resultant_force_from_fields()
+vec3 resultant_force_from_fields(const uint index)
 {
     vec3 F_resultant;
     const vec3 this_pos = vec3(particles[index].pos.x, particles[index].pos.y, particles[index].pos.z);
@@ -222,7 +220,7 @@ vec3 resultant_force_from_fields()
  * V2f = --------- * V1i + --------- * V2i
  *       (m1 + m2)         (m1 + m2)
  */
-void elastic_collision_linear_momentum_update(const uint that_index)
+void elastic_collision_linear_momentum_update(const uint index, const uint that_index)
 {
     const vec3 this_momentum = vec3(particles[index].momentum.x, particles[index].momentum.y, particles[index].momentum.z);
     const vec3 that_momentum = vec3(particles[that_index].momentum.x, particles[that_index].momentum.y, particles[that_index].momentum.z);
@@ -252,7 +250,7 @@ void elastic_collision_linear_momentum_update(const uint that_index)
  * NOTE: Angular momentum is not being conserved along with linear momentum
  *       this way.  This is a placeholder.
  */
-void update_angular_momentum_after_collision(const uint that_index)
+void update_angular_momentum_after_collision(const uint index, const uint that_index)
 {
     const vec3 this_pos = vec3(particles[index].pos.x, particles[index].pos.y, particles[index].pos.z);
     const vec3 that_pos = vec3(particles[that_index].pos.x, particles[that_index].pos.y, particles[that_index].pos.z);
@@ -276,11 +274,11 @@ void update_angular_momentum_after_collision(const uint that_index)
 }
 
 
-void time_evolution()
+void time_evolution(const uint index)
 {
-    update_momentum(resultant_force_from_fields());
-    update_position();
-    update_orientation();
+    update_momentum(resultant_force_from_fields(index), index);
+    update_position(index);
+    update_orientation(index);
 
     /* Simple check for collision with another particle and perform momentum update */
     for (uint that_index = 0; that_index < particles.length(); ++that_index) {
@@ -290,11 +288,11 @@ void time_evolution()
         if (detect_collision(particles[index], particles[that_index])) {
 
             /* Unconserved angular momentum portion */
-            update_angular_momentum_after_collision(that_index);
-            update_orientation();
+            update_angular_momentum_after_collision(index, that_index);
+            update_orientation(index);
 
-            elastic_collision_linear_momentum_update(that_index);
-            update_position();
+            elastic_collision_linear_momentum_update(index, that_index);
+            update_position(index);
         }
     }
 }

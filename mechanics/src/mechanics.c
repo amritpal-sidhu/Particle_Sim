@@ -21,7 +21,7 @@ static void update_momenta(particle_t *particle, const vector3d_t F, const doubl
 static void update_position(particle_t *particle, const double sample_period);
 static void update_angular_momenta(particle_t *particle, const vector3d_t r, const vector3d_t momentum);
 static void update_orientation(particle_t *particle, const double sample_period);
-static vector3d_t resultant_force_from_fields(particle_t **particles, const size_t particle_count, const size_t this);
+static vector3d_t resultant_force_from_fields(particle_t *particles, const size_t particle_count, const size_t this);
 static void elastic_collision_linear_momenta_update(particle_t *this, particle_t *that);
 static void update_angular_momenta_after_collision(particle_t *this, particle_t *that);
 
@@ -72,37 +72,37 @@ vector3d_t componentize_force_3d(const double F, const vector3d_t direction_vect
 
 
 
-void time_evolution(particle_t **particles, const size_t particle_count, const double sample_period)
+void time_evolution(particle_t *particles, const size_t particle_count, const float sample_period)
 {
     for (size_t this = 0; this < particle_count; ++this) {
 
-        update_momenta(particles[this], resultant_force_from_fields(particles, particle_count, this), sample_period);
-        update_position(particles[this], sample_period);
-        update_orientation(particles[this], sample_period);
+        update_momenta(&particles[this], resultant_force_from_fields(particles, particle_count, this), sample_period);
+        update_position(&particles[this], sample_period);
+        update_orientation(&particles[this], sample_period);
 
         /* Simple check for collision with another particle and perform momentum update */
         for (size_t that = 0; that < particle_count; ++that) {
             
-            if (particles[this]->id == particles[that]->id) continue;
+            if (particles[this].id == particles[that].id) continue;
 
-            if (detect_collision(particles[this], particles[that])) {
+            if (detect_collision(&particles[this], &particles[that])) {
 
                 /* Unconserved angular momentum portion */
-                update_angular_momenta_after_collision(particles[this], particles[that]);
-                update_orientation(particles[this], sample_period);
+                update_angular_momenta_after_collision(&particles[this], &particles[that]);
+                update_orientation(&particles[this], sample_period);
 
-                elastic_collision_linear_momenta_update(particles[this], particles[that]);
-                update_position(particles[this], sample_period);
+                elastic_collision_linear_momenta_update(&particles[this], &particles[that]);
+                update_position(&particles[this], sample_period);
             }
         }
 
         #ifdef WRITE_LOG_DATA
         log__write(log_handle, LOG_DATA, "%i,%E,%E,%E,%E,%E,%f,%f,%f,%E,%E,%E,%f,%f,%f",
-        particles[this]->id, particles[this]->mass, particles[this]->charge, 
-        particles[this]->momenta.i, particles[this]->momenta.j, particles[this]->momenta.k,
-        particles[this]->pos.i, particles[this]->pos.j, particles[this]->pos.k,
-        particles[this]->angular_momenta.i,particles[this]->angular_momenta.j,particles[this]->angular_momenta.k,
-        particles[this]->orientation.i,particles[this]->orientation.j,particles[this]->orientation.k);
+        particles[this].id, particles[this].mass, particles[this].charge, 
+        particles[this].momenta.i, particles[this].momenta.j, particles[this].momenta.k,
+        particles[this].pos.i, particles[this].pos.j, particles[this].pos.k,
+        particles[this].angular_momenta.i,particles[this].angular_momenta.j,particles[this].angular_momenta.k,
+        particles[this].orientation.i,particles[this].orientation.j,particles[this].orientation.k);
         #endif
     }
 
@@ -148,30 +148,30 @@ static void update_orientation(particle_t *particle, const double sample_period)
     particle->orientation = vector3d__add(particle->orientation, vector3d__scale(change_in_orientation, sample_period));
 }
 
-static vector3d_t resultant_force_from_fields(particle_t **particles, const size_t particle_count, const size_t this)
+static vector3d_t resultant_force_from_fields(particle_t *particles, const size_t particle_count, const size_t this)
 {
     vector3d_t F_resultant = {0};
 
     /* Try to find a time improvement to compute all forces acting on current particle */
     for (size_t that = 0; that < particle_count; ++that) {
 
-        if (particles[this]->id == particles[that]->id) continue;
+        if (particles[this].id == particles[that].id) continue;
 
-        const double r = vector3d__distance(particles[this]->pos, particles[that]->pos);
+        const double r = vector3d__distance(particles[this].pos, particles[that].pos);
 
         F_resultant = vector3d__add(
             F_resultant,
             componentize_force_3d(
-                electric_force(particles[this]->charge, particles[that]->charge, r),
-                vector3d__sub(particles[this]->pos, particles[that]->pos)
+                electric_force(particles[this].charge, particles[that].charge, r),
+                vector3d__sub(particles[this].pos, particles[that].pos)
             )
         );
         #ifdef __USE_GRAVITY
         F_resultant = vector3d__add(
             F_resultant,
             componentize_force_3d(
-                gravitational_force(particles[this]->mass, particles[that]->mass, r),
-                vector3d__sub(particles[that]->pos, particles[this]->pos)
+                gravitational_force(particles[this].mass, particles[that].mass, r),
+                vector3d__sub(particles[that].pos, particles[this].pos)
             )
         );
         #endif

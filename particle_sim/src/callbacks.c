@@ -75,7 +75,6 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     case GLFW_KEY_E:
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
             particles[i].pos = initial_pos[i];
-        rdata.update_particles = 1;
         break;
 
     // reset particle locations and momenta
@@ -84,7 +83,6 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             particles[i].pos = initial_pos[i];
             particles[i].momenta = initial_momentum[i];
         }
-        rdata.update_particles = 1;
         break;
 
     // reset particle locations and momenta as well as orientation and angular momentum
@@ -95,7 +93,6 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             particles[i].orientation = initial_orientation[i];
             particles[i].angular_momenta = initial_angular_momentum[i];
         }
-        rdata.update_particles = 1;
         break;
 
     default:

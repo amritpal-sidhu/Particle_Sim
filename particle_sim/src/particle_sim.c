@@ -16,7 +16,7 @@ static void render_loop(GLFWwindow *window);
 log_t *log_handle;
 particle_t particles[P_COUNT+E_COUNT];
 /* View scalar initial value determined from experimentation, but not sure it's source */
-struct render_data_s rdata = {.num_segments = NUM_SEGMENTS, .view_scalar = 10E-20f, .update_particles = 0};
+struct render_data_s rdata = {.num_segments = NUM_SEGMENTS, .view_scalar = 10E-20f};
 
 
 int main(void)
@@ -47,7 +47,7 @@ int main(void)
     buffer_objects_init(&rdata, p_vertices, e_vertices, particles);
 
     /* create and initialize a vertex array object */
-    vertex_array_object_init(&rdata, particles);
+    vertex_array_object_init(&rdata);
 
     /* run main render loop and clean program on program termination */
     render_loop(window);
@@ -70,6 +70,7 @@ static void render_loop(GLFWwindow *window)
         loop_start_time = glfwGetTime();
  
         glfwGetFramebufferSize(window, &rdata.width, &rdata.height);
+        rdata.ratio = (float)rdata.width / rdata.height;
 
         glViewport(0, 0, rdata.width, rdata.height);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -80,9 +81,8 @@ static void render_loop(GLFWwindow *window)
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        // run_time_evolution_shader(&rdata, particles);
         time_evolution(particles, P_COUNT+E_COUNT, sample_period);
-        rdata.update_particles = 1;
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.particles_offset, ssbo_info.size*(P_COUNT+E_COUNT), particles);
 
         double elapsed_time_usec = 1E6*(glfwGetTime()-loop_start_time);
         if (elapsed_time_usec < wait_time_usec)

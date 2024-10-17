@@ -6,6 +6,7 @@
 
 #include "vector.h"
 #include "common.h"
+#include "particle.h"
 
 #define PI                  3.14159265358979323846264338327950f
 
@@ -16,10 +17,9 @@
 #define SAMPLE_PERIOD_LOC           0
 
 /* vertex shader locations */
-#define UBO_BINDING_POINT           1
 #define VS_IN_POS_LOC               0
 #define VS_IN_COLOR_LOC             1
-#define VS_INDEX_LOC                2
+#define MVP_UNIFORM_LOC             2
 
 #define DEBUG_OUTPUT_FILEPATH       "debug_output.txt"
 
@@ -56,7 +56,8 @@ typedef enum
 struct render_data_s
 {
     int width;
-    int height; 
+    int height;
+    float ratio;
     int num_segments;
     float view_scalar;
     GLuint VAO[VBO_COUNT];
@@ -64,7 +65,6 @@ struct render_data_s
     GLuint UBO;
     GLuint SSBO;
     GLuint program[PROGRAM_COUNT];
-    unsigned char update_particles;
 };
 
 
@@ -72,14 +72,6 @@ struct render_data_s
 extern const color_t p_color;
 extern const color_t e_color;
 
-/* uniform buffer object offsets and size variables */
-static struct ubo_info_s
-{
-    unsigned int sample_period_offset;
-    unsigned int view_scalar_offset;
-    unsigned int view_ratio_offset;
-    unsigned int size;
-} ubo_info;
 /* shader storage buffer offsets and sizes */
 static struct ssbo_info_s
 {
@@ -89,11 +81,13 @@ static struct ssbo_info_s
 
 
 void buffer_objects_init(struct render_data_s *rdata, void *p_verts, void *e_verts, void *particle_data);
-void vertex_array_object_init(struct render_data_s *rdata, void *particle_data);
+void vertex_array_object_init(struct render_data_s *rdata);
 
 int shader_compile_and_link(struct render_data_s *rdata);
 int shader_compile_and_link_spir_v(struct render_data_s *rdata);
-void render_particles(struct render_data_s *rdata, const unsigned int index, void *particle_data);
+
+void update_mvp_uniform(struct render_data_s *rdata, const vector3d_t pos, const vector3d_t angle);
+void render_particles(struct render_data_s *rdata, const unsigned int index, particle_t *particle_data);
 void run_time_evolution_shader(struct render_data_s *rdata, void *particle_data);
 
 void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color);

@@ -110,6 +110,7 @@ void opengl_libraries_init(GLFWwindow **window)
     if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
         glDebugMessageCallback(debug_message_callback, NULL);
         log__write(log_handle, LOG_INFO, "Registered DebugMessageCallback");
     } else

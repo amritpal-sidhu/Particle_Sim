@@ -46,7 +46,7 @@ const color_t e_color = (color_t){.r = 0.0f, .g = 0.0f, .b = 1.0f};
 
 /* Private function prototypes */
 static void vertex_buffer_init(struct render_data_s *rdata, const buffer_index_e buf, void *data);
-static void shader_storage_buffer_init(struct render_data_s *rdata, void *particle_data);
+static void shader_storage_buffer_init(struct render_data_s *rdata, particle_t *particle_data);
 static void bind_vertex_array(struct render_data_s *rdata);
 static GLchar *shader_type_to_name(const enum shader_e type);
 static GLchar *program_type_to_name(const program_e type);
@@ -216,12 +216,13 @@ static void vertex_buffer_init(struct render_data_s *rdata, const buffer_index_e
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-static void shader_storage_buffer_init(struct render_data_s *rdata, void *particle_data)
+static void shader_storage_buffer_init(struct render_data_s *rdata, particle_t *particle_data)
 {
     glGenBuffers(1, &rdata->SSBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
-    glBufferStorage(GL_SHADER_STORAGE_BUFFER, ssbo_info.size*(P_COUNT+E_COUNT), particle_data,
+    glBufferStorage(GL_SHADER_STORAGE_BUFFER, ssbo_info.size*(P_COUNT+E_COUNT), (void*)particle_data,
                     GL_MAP_COHERENT_BIT |  GL_MAP_PERSISTENT_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_DYNAMIC_STORAGE_BIT);
+    particle_data = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, SSBO_BINDING_POINT, rdata->SSBO);
 }
 

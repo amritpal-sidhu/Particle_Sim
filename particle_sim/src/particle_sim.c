@@ -82,7 +82,6 @@ static void render_loop(GLFWwindow *window)
         glfwPollEvents();
 
         time_evolution(particles, P_COUNT+E_COUNT, sample_period);
-        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.particles_offset, ssbo_info.size*(P_COUNT+E_COUNT), particles);
 
         double elapsed_time_usec = 1E6*(glfwGetTime()-loop_start_time);
         if (elapsed_time_usec < wait_time_usec)

@@ -75,13 +75,17 @@ static void render_loop(GLFWwindow *window)
         glViewport(0, 0, rdata.width, rdata.height);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        // run_time_evolution_shader(&rdata, particles);
+
         for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
             render_particles(&rdata, i, particles);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        time_evolution(particles, P_COUNT+E_COUNT, sample_period);
+        run_time_evolution_shader(&rdata, particles);
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.particles_offset, ssbo_info.size*(P_COUNT+E_COUNT), particles);
+        // time_evolution(particles, P_COUNT+E_COUNT, sample_period);
 
         double elapsed_time_usec = 1E6*(glfwGetTime()-loop_start_time);
         if (elapsed_time_usec < wait_time_usec)

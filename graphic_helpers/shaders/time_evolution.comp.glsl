@@ -8,6 +8,8 @@
 #define UNIVERSAL_GRAVITY_CONST     6.6743E-17f // (N*m^2)/(g^2)
 #define COULOMB_CONST               8.9875E9f  // (N*m^2)/(C^2)
 
+#define PARTICLE_COUNT              3
+
 struct vector3d_t
 {
     float x;
@@ -33,7 +35,14 @@ layout(std430, binding = 0) buffer particle_data_block
 {
     particle_t particles[];
 };
-layout(location = 0) uniform float sample_period;
+layout(std430, binding = 1) buffer uniform_data_block
+{
+    float sample_period;
+    float view_scalar;
+    float ratio;
+};
+
+// layout(location = 0) uniform mat4 MVP[3];
 
 /* Local function prototypes */
 /**
@@ -66,11 +75,33 @@ void elastic_collision_linear_momentum_update(const uint index, const uint that_
 void update_angular_momentum_after_collision(const uint index, const uint that_index);
 void time_evolution(const uint index);
 
+/* matrix operators to compute MVP */
+mat4 mat4_identity();
+mat4 mat4_translate(vector3d_t pos);
+mat4 mat4_rotate_X(mat4 M, const float angle);
+mat4 mat4_rotate_Y(mat4 M, const float angle);
+mat4 mat4_rotate_Z(mat4 M, const float angle);
+mat4 mat4_ortho(const float l, const float r, const float b, const float t, const float n, const float f);
+
 
 /* main function */
 void main()
 {
-    time_evolution(gl_WorkGroupID.x);
+    const uint index = gl_WorkGroupID.x;
+    // mat4 M, V, P;
+
+    // for (uint i = 0; i < particles.length(); ++i) {
+    //     M = mat4_translate(particles[index].pos);
+    //     M = mat4_rotate_X(M, particles[index].orientation/view_scalar);
+    //     M = mat4_rotate_Y(M, particles[index].orientation/view_scalar);
+    //     M = mat4_rotate_Z(M, particles[index].orientation/view_scalar);
+    //     M *= view_scalar;
+    //     P = mat4_ortho(-ratio, ratio, -1, 1, 1, -1);
+    //     MVP[index] = M * P;
+    // }
+
+    time_evolution(index);
+    barrier();
 }
 
 
@@ -295,4 +326,86 @@ void time_evolution(const uint index)
             update_position(index);
         }
     }
+}
+
+mat4 mat4_identity()
+{
+    mat4 M;
+
+    for (uint c = 0; c < 4; ++c)
+        for (uint r = 0; r < 4; ++r)
+            M[c][r] = c==r?1:0;
+
+    return M;
+}
+mat4 mat4_translate(vector3d_t pos)
+{
+    mat4 M = mat4_identity();
+
+    M[3].xyz = vec3(pos.x, pos.y, pos.z);
+
+    return M;
+}
+
+mat4 mat4_rotate_X(mat4 M, const float angle)
+{
+    const float s = sin(angle);
+    const float c = cos(angle);
+    mat4 R;
+
+    R[0].xyzw = vec4(1,  0, 0, 0);
+    R[1].xyzw = vec4(0,  c, s, 0);
+    R[2].xyzw = vec4(0, -s, c, 0);
+    R[3].xyzw = vec4(0,  0, 0, 1);
+
+    return M * R;
+}
+
+mat4 mat4_rotate_Y(mat4 M, const float angle)
+{
+    const float s = sin(angle);
+    const float c = cos(angle);
+    mat4 R;
+
+    R[0].xyzw = vec4(c, 0, -s, 0);
+    R[1].xyzw = vec4(0, 1,  0, 0);
+    R[2].xyzw = vec4(s, 0,  c, 0);
+    R[3].xyzw = vec4(0, 0,  0, 1);
+
+    return M * R;
+}
+
+mat4 mat4_rotate_Z(mat4 M, const float angle)
+{
+    const float s = sin(angle);
+    const float c = cos(angle);
+    mat4 R;
+
+    R[0].xyzw = vec4( c, s, 0, 0);
+    R[1].xyzw = vec4(-s, c, 0, 0);
+    R[2].xyzw = vec4( 0, 0, 1, 0);
+    R[3].xyzw = vec4( 0, 0, 0, 1);
+
+    return M * R;
+}
+
+mat4 mat4_ortho(const float l, const float r, const float b, const float t, const float n, const float f)
+{
+    mat4 M;
+
+    M[0][0] = 2/(r-l);
+    M[0][1] = M[0][2] = M[0][3] = 0;
+
+    M[1][1] = 2/(t-b);
+    M[1][0] = M[1][2] = M[1][3] = 0;
+
+    M[2][2] = 2/(f-n);
+    M[2][0] = M[2][1] = M[2][3] = 0;
+
+    M[3][0] = -(r+l)/(r-l);
+    M[3][1] = -(t+b)/(t-b);
+    M[3][2] = -(f+n)/(f-n);
+    M[3][3] = 1;
+
+    return M;
 }

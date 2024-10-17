@@ -57,6 +57,8 @@ static GLuint compile_shader_spir_v(const enum shader_e type);
 static GLuint link_shader(const GLuint *shaders, const size_t s_size);
 static void get_program_buffer_block_names_and_offsets(const GLuint program, const GLenum buf_interface, const enum shader_e s);
 static void get_ssbo_info(struct ssbo_info_s *info, const struct render_data_s *rdata);
+static void get_ubo_info(struct ubo_info_s *info, const struct render_data_s *rdata);
+
 
 
 /* Public function definitions */
@@ -85,9 +87,11 @@ int shader_compile_and_link(struct render_data_s *rdata)
 
     #ifdef __LOG_BLOCK_INTERFACE_ALIGNMENTS
     get_program_buffer_block_names_and_offsets(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, COMP);
+    get_program_buffer_block_names_and_offsets(rdata->program[TIME_EVOLVE], GL_UNIFORM_BLOCK, COMP);
     #endif
 
     get_ssbo_info(&ssbo_info, rdata);
+    // get_ubo_info(&ubo_info, rdata);
 
     return retval;
 }
@@ -130,15 +134,17 @@ void update_mvp_uniform(struct render_data_s *rdata, const vector3d_t pos, const
     mat4x4_ortho(p, -rdata->ratio, rdata->ratio, -1.f, 1.f, 1.f, -1.f);
     mat4x4_mul(mvp, p, m);
 
-    glUniformMatrix4fv(MVP_UNIFORM_LOC, 1, GL_FALSE, (const GLfloat *)mvp);
+    glUniformMatrix4fv(VS_MVP_UNIFORM_LOC, 1, GL_FALSE, (const GLfloat *)mvp);
 
 }
 
-void render_particles(struct render_data_s *rdata, const unsigned int index, particle_t *particle_data)
+void render_particles(struct render_data_s *rdata, const unsigned int index, particle_t *particles)
 {
     glUseProgram(rdata->program[RASTER]);
     glBindVertexArray(rdata->VAO[index<P_COUNT?P_BUF:E_BUF]);
-    update_mvp_uniform(rdata, particle_data[index].pos, particle_data[index].orientation);
+    update_mvp_uniform(rdata, particles[index].pos, particles[index].orientation);
+    // for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
+    //     glUniformMatrix4fv(CS_MVP_UNIFORM_LOC, 1, GL_FALSE, (const GLfloat *)&rdata->MVP[i]);
     glDrawArrays(GL_TRIANGLE_FAN, 0, rdata->num_segments);
     glBindVertexArray(0);
 
@@ -147,11 +153,14 @@ void render_particles(struct render_data_s *rdata, const unsigned int index, par
 void run_time_evolution_shader(struct render_data_s *rdata, void *particle_data)
 {
     glUseProgram(rdata->program[TIME_EVOLVE]);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, ssbo_info.particles_offset, ssbo_info.size*(P_COUNT+E_COUNT), particle_data);
-    glUniform1f(SAMPLE_PERIOD_LOC, sample_period);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.sample_period_offset, sizeof(float), &sample_period);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.view_scalar_offset, sizeof(float), &rdata->view_scalar);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.sample_period_offset, sizeof(float), &rdata->ratio);
     glDispatchCompute(P_COUNT+E_COUNT, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    // for (size_t i = 0; i < P_COUNT+E_COUNT; ++i)
+    //     glGetUniformfv(rdata->program[TIME_EVOLVE], CS_MVP_UNIFORM_LOC, (GLfloat *)&rdata->MVP[i]);
 }
 
 void create_circle_vertex_array(struct vertex *v, const vector2d_t center, const float r, const int num_segments, const color_t color)
@@ -220,10 +229,23 @@ static void shader_storage_buffer_init(struct render_data_s *rdata, particle_t *
 {
     glGenBuffers(1, &rdata->SSBO);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO);
-    glBufferStorage(GL_SHADER_STORAGE_BUFFER, ssbo_info.size*(P_COUNT+E_COUNT), (void*)particle_data,
-                    GL_MAP_COHERENT_BIT |  GL_MAP_PERSISTENT_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_DYNAMIC_STORAGE_BIT);
-    particle_data = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
+    // glBufferStorage(GL_SHADER_STORAGE_BUFFER, ssbo_info.size*(P_COUNT+E_COUNT), (void*)particle_data,
+    //                 GL_MAP_COHERENT_BIT |  GL_MAP_PERSISTENT_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_DYNAMIC_STORAGE_BIT);
+    // particle_data = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo_info.size*(P_COUNT+E_COUNT), particle_data, GL_DYNAMIC_COPY);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, SSBO_BINDING_POINT, rdata->SSBO);
+}
+
+static void uniform_buffer_init(struct render_data_s *rdata)
+{
+    glGenBuffers(1, &rdata->UBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, rdata->UBO);
+    glBufferStorage(GL_UNIFORM_BUFFER, ubo_info.size*(P_COUNT+E_COUNT), NULL,
+                    GL_MAP_COHERENT_BIT |  GL_MAP_PERSISTENT_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_DYNAMIC_STORAGE_BIT);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.sample_period_offset, sizeof(float), &sample_period);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.view_scalar_offset, sizeof(float), &rdata->view_scalar);
+    glBufferSubData(GL_UNIFORM_BUFFER, ubo_info.sample_period_offset, sizeof(float), &rdata->ratio);
+    glBindBufferBase(GL_UNIFORM_BUFFER, UBO_BINDING_POINT, rdata->UBO);
 }
 
 static void bind_vertex_array(struct render_data_s *rdata)
@@ -452,6 +474,62 @@ static void get_ssbo_info(struct ssbo_info_s *info, const struct render_data_s *
 
         prop = GL_BUFFER_DATA_SIZE;
         glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, resource_index, 1, &prop, 1, NULL, &info->size);
+    }
+
+    free(resource_name);
+    free(var_name);
+}
+
+static void get_ubo_info(struct ubo_info_s *info, const struct render_data_s *rdata)
+{
+    GLint num_resources, ubo_max_len, var_max_len;
+    GLchar *resource_name, *var_name;
+
+    /* get the number of ssbos, the max length of the ssbo names, and the max length of variable names */
+    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &num_resources);
+    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &ubo_max_len);
+    glGetProgramInterfaceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, GL_MAX_NAME_LENGTH, &var_max_len);
+    ERROR_CHECK(!(resource_name=malloc(ubo_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+    ERROR_CHECK(!(var_name=malloc(var_max_len*sizeof(GLchar)+1)), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+
+    for (GLint i = 0; i < num_resources; ++i) {
+        GLenum prop;
+        GLint num_var, *vars, offset, buffer_data_size;
+
+        /* Get the ssbo name */
+        prop = GL_NUM_ACTIVE_VARIABLES;
+        glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_UNIFORM_BLOCK, i, ubo_max_len, NULL, resource_name);
+
+        /* get the resource index */
+        GLuint resource_index = glGetProgramResourceIndex(rdata->program[TIME_EVOLVE], GL_UNIFORM_BLOCK, resource_name);
+
+        /* get the number of variables in the ssbo */
+        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_UNIFORM_BLOCK, resource_index, 1, &prop, 1, NULL, &num_var);
+        ERROR_CHECK(!(vars=malloc(num_var*sizeof(GLint))), exit(EXIT_FAILURE), LOG_ERROR, "malloc() failed");
+        
+        /* get the active variables within the ssbo */
+        prop = GL_ACTIVE_VARIABLES;
+        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_UNIFORM_BLOCK, resource_index, 1, &prop, num_var, NULL, vars);
+
+        /* get and print to log the names and offsets for the ssbo variables */
+        prop = GL_OFFSET;
+        for (GLint j = 0; j < num_var; ++j) {
+            glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], 1, &prop, num_var, NULL, &offset);
+            glGetProgramResourceName(rdata->program[TIME_EVOLVE], GL_BUFFER_VARIABLE, vars[j], var_max_len, NULL, var_name);
+
+            if (!strcmp(var_name, "sample_period")) {
+                info->sample_period_offset = offset;
+            } else if (!strcmp(var_name, "view_scalar")) {
+                info->view_scalar_offset = offset;
+            } else if (!strcmp(var_name, "ratio")) {
+                info->ratio_offset = offset;
+            }
+        }
+
+        free(vars);
+
+        prop = GL_BUFFER_DATA_SIZE;
+        glGetProgramResourceiv(rdata->program[TIME_EVOLVE], GL_UNIFORM_BLOCK, resource_index, 1, &prop, 1, NULL, &info->size);
     }
 
     free(resource_name);

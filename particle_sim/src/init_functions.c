@@ -42,7 +42,7 @@ void create_particle_objects(particle_t *particles)
      */
     for (size_t i = 0; i < P_COUNT; ++i)
         particle__init(particles, i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], E_COUNT*(PROTON_MASS+NEUTRON_MASS), E_COUNT*PROTON_CHARGE, FAKE_NUCLEUS_RADIUS);
-    for (size_t i = P_COUNT; i < P_COUNT+E_COUNT; ++i)
+    for (size_t i = P_COUNT; i < NUM_PARTICLES; ++i)
         particle__init(particles, i, initial_pos[i], initial_momentum[i], initial_orientation[i], initial_angular_momentum[i], ELECTRON_MASS, ELECTRON_CHARGE, FAKE_NUCLEUS_RADIUS/8);
 }
 
@@ -141,7 +141,7 @@ void clean_program(GLFWwindow *window)
     glDeleteProgram(rdata.program[RASTER]);
     glDeleteBuffers(VBO_COUNT, rdata.VBO);
     glDeleteBuffers(VBO_COUNT, rdata.VAO);
-    glDeleteBuffers(1, &rdata.SSBO);
+    glDeleteBuffers(SSBO_COUNT, rdata.SSBO);
     glDeleteBuffers(1, &rdata.UBO);
 
     log__write(log_handle, LOG_STATUS, "Program terminated correctly.");

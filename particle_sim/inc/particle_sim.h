@@ -11,19 +11,20 @@
 #define CIRCLE_Y_SEGMENTS       64
 #define CIRCLE_Z_SEGMENTS       64
 #ifdef DRAW_SPHERE
-#define NUM_SEGMENTS            (CIRCLE_Y_SEGMENTS * CIRCLE_Z_SEGMENTS) + 2
+#define NUM_SEGMENTS            (CIRCLE_Y_SEGMENTS * CIRCLE_Z_SEGMENTS + 2)
 #else
 #define NUM_SEGMENTS            CIRCLE_Y_SEGMENTS
 #endif
 
 #define P_COUNT             1   // Temporary solution to "simulate" a nucleus
 #define E_COUNT             2
+#define NUM_PARTICLES       (P_COUNT + E_COUNT)
 
 
 /* Main parameters that will effect the behavior */
 static const float sample_period = 8E-3f;
 
-static const vector3d_t initial_pos[P_COUNT+E_COUNT] = {
+static const vector3d_t initial_pos[NUM_PARTICLES] = {
     /* Positively charged */
     {.i = 0.0f, .j = 0.0f, .k = 0.0f},
     /* Negatively charged */
@@ -31,7 +32,7 @@ static const vector3d_t initial_pos[P_COUNT+E_COUNT] = {
     {.i = 0.5f, .j = 0.3f, .k = 0.0f},
 };
 
-static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
+static const vector3d_t initial_momentum[NUM_PARTICLES] = {
     /* Positively charged */
     {.i = 0.0f, .j = 0.0f, .k = 0.0f},
     /* Negatively charged */
@@ -39,7 +40,7 @@ static const vector3d_t initial_momentum[P_COUNT+E_COUNT] = {
     {.i = 0.0f, .j = 0.0f, .k = 0.0f},
 };
 
-static const vector3d_t initial_orientation[P_COUNT+E_COUNT] = {
+static const vector3d_t initial_orientation[NUM_PARTICLES] = {
     /* Positively charged */
     {.i = 0.0f, .j = 0.0f, .k = 0.0f},
     /* Negatively charged */
@@ -47,7 +48,7 @@ static const vector3d_t initial_orientation[P_COUNT+E_COUNT] = {
     {.i = 0.0f, .j = 0.0f, .k = 0.0f},
 };
 
-static const vector3d_t initial_angular_momentum[P_COUNT+E_COUNT] = {
+static const vector3d_t initial_angular_momentum[NUM_PARTICLES] = {
     /* Positively charged */
     {.i = 0.0f, .j = 0.0f, .k = 0.0f},
     /* Negatively charged */
@@ -57,7 +58,7 @@ static const vector3d_t initial_angular_momentum[P_COUNT+E_COUNT] = {
 
 
 extern log_t *log_handle;
-extern particle_t particles[P_COUNT+E_COUNT];
+extern particle_t particles[NUM_PARTICLES];
 extern struct render_data_s rdata;
 
 

@@ -2,7 +2,7 @@ import os
 import re
 
 
-def parse_logfile_for_physics_data(filepath):
+def parse_logfile_for_physics_data(logfile):
 
     pattern = r"^.*DATA:.*]\.(\w+) = <([\d\D]+), ([\d\D]+), ([\d\D]+)>$"
     physics_data = {
@@ -12,7 +12,7 @@ def parse_logfile_for_physics_data(filepath):
         "angular_momentum": []
     }
 
-    with open(filepath, "r") as file:
+    with open(logfile, "r") as file:
         for line in file:
             match = re.match(pattern, line)
             if match:
@@ -30,29 +30,19 @@ def parse_logfile_for_physics_data(filepath):
                     
     return physics_data
 
-
-if __name__ == "__main__":
-    filepath = os.path.join(os.path.dirname(__file__), "../_build/bin/Debug/debug_output.txt")
-    physics_data = parse_logfile_for_physics_data(filepath)
+def print_physics_data(physics_data):
     for key, value in physics_data.items():
-        print(f'{key}: {value}')
+        for v in value:
+            print(f'{key}: {v}')
+
+
+'''
+Entry point
+'''
+if __name__ == "__main__":
+    logfile = os.path.join(os.path.dirname(__file__), "../_build/bin/Debug/debug_output.txt")
+    print_physics_data(parse_logfile_for_physics_data(logfile))
 
 '''
 Plot trace of particle motion
 '''
-# unique_ids = []
-
-# for id in df.particle_id:
-#     if id not in unique_ids:
-#         unique_ids.append(id)
-
-# fig, axis = plt.subplots(1, 2)
-
-# for id in unique_ids:
-#     axis[0].plot(df.loc[df.particle_id == id].x_pos, df.loc[df.particle_id == id].y_pos)
-#     axis[1].plot(df.loc[df.particle_id == id].x_momenta, df.loc[df.particle_id == id].y_momenta)
-    
-
-# axis[0].title.set_text("Position")
-# axis[1].title.set_text("Momentum")
-# plt.show()

@@ -71,7 +71,6 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         break;
 
-    // reset particle locations... but not momenta!
     case GLFW_KEY_E:
         for (size_t i = 0; i < NUM_PARTICLES; ++i)
             particles[i].pos = initial_pos[i];
@@ -88,7 +87,6 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         set_particle_ssbo_data(&rdata, GL_WRITE_ONLY, particles);
         break;
 
-    // reset particle locations and momenta as well as orientation and angular momentum
     case GLFW_KEY_T:
         for (size_t i = 0; i < NUM_PARTICLES; ++i) {
             particles[i].pos = initial_pos[i];
@@ -112,8 +110,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
      * I'm not sure why these values get used... 
      * might be the size of things in my coordinate system
      */
-    const double upper_bound = 10E-20;
-    const double lower_bound = 1E-20;
+    const double upper_bound = 10E-6;
+    const double lower_bound = 1E-6;
 
     rdata.view_scalar *= yoffset > 0 ? magnify_scalar : minify_scalar;
 

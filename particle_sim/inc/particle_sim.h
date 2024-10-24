@@ -22,7 +22,7 @@
 
 
 /* Main parameters that will effect the behavior */
-static const float sample_period = 8E-3f;
+static const float sample_period = 10E-3f;
 
 static const vector3d_t initial_pos[NUM_PARTICLES] = {
     /* Positively charged */

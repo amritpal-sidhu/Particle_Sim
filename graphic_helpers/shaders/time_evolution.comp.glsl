@@ -17,6 +17,13 @@ struct vector3d_t
     float z;
 };
 
+struct dvector3d_t
+{
+    double x;
+    double y;
+    double z;
+};
+
 struct particle_t
 {
     uint id;
@@ -29,8 +36,10 @@ struct particle_t
     float radius;
 };                              
 
-/* variables */
+
 layout(local_size_x = 1) in;
+
+/* variables */
 layout(std430, binding = 0) buffer particle_data_block
 {
     particle_t particles[];
@@ -46,11 +55,10 @@ layout(binding = 2) uniform uniform_data_block
     float ratio;
 };
 
-shared vec3 s_pos[PARTICLE_COUNT];
-shared vec3 s_momentum[PARTICLE_COUNT];
-shared vec3 s_orientation[PARTICLE_COUNT];
-shared vec3 s_angular_momentum[PARTICLE_COUNT];
-
+vec3 s_pos[PARTICLE_COUNT];
+vec3 s_momentum[PARTICLE_COUNT];
+vec3 s_orientation[PARTICLE_COUNT];
+vec3 s_angular_momentum[PARTICLE_COUNT];
 uint index;
 
 /* Local function prototypes */
@@ -62,31 +70,39 @@ void copy_ssbo_to_shared_variables();
 void copy_shared_variables_to_ssbo();
 
 /**
+ * function that uses LOCAL_EPSILON when value is zero
+ */
+double div_zero(const double value);
+
+/**
  * overloaded GLSL functions for vector3d_t
  */
 float distance(const vector3d_t v0, const vector3d_t v1);
 float length(const vector3d_t v);
 
+double distance(const dvector3d_t v0, const dvector3d_t v1);
+double length(const dvector3d_t v);
+
 /**
  * forcing functions
  */
-float gravitational_force(const float m1, const float m2, float r);
-float electric_force(const float q1, const float q2, float r);
+double gravitational_force(const double m1, const double m2, double r);
+double electric_force(const double q1, const double q2, double r);
 
 /**
  * functions to componentize force
  */
-vec2 componentize_force_2d(const float F, const vec2 direction_vector);
-vec3 componentize_force_3d(const float F, const vec3 direction_vector);
+dvec2 componentize_force_2d(const double F, const dvec2 direction_vector);
+dvec3 componentize_force_3d(const double F, const dvec3 direction_vector);
 
 /**
  * functions to update physical state
  */
 bool detect_collision(const uint that_index);
-void update_momentum(const vec3 F);
+void update_momentum(const dvec3 F);
 void update_position();
 void update_orientation();
-vec3 resultant_force_from_fields();
+dvec3 resultant_force_from_fields();
 void elastic_collision_linear_momentum_update(const uint that_index);
 void update_angular_momentum_after_collision(const uint that_index);
 void time_evolution();
@@ -107,13 +123,9 @@ void main()
     index = gl_WorkGroupID.x;
 
     update_MVP();
-    barrier();
 
     copy_ssbo_to_shared_variables();
-
     time_evolution();
-    barrier();
-
     copy_shared_variables_to_ssbo();
 }
 
@@ -131,22 +143,27 @@ void copy_ssbo_to_shared_variables()
 
 void copy_shared_variables_to_ssbo()
 {
-    particles[index].pos.x = s_pos[index].x;
-    particles[index].pos.y = s_pos[index].y;
-    particles[index].pos.z = s_pos[index].z;
+    particles[index].pos.x = (s_pos[index].x);
+    particles[index].pos.y = (s_pos[index].y);
+    particles[index].pos.z = (s_pos[index].z);
 
-    particles[index].momentum.x = s_momentum[index].x;
-    particles[index].momentum.y = s_momentum[index].y;
-    particles[index].momentum.z = s_momentum[index].z;
+    particles[index].momentum.x = (s_momentum[index].x);
+    particles[index].momentum.y = (s_momentum[index].y);
+    particles[index].momentum.z = (s_momentum[index].z);
 
-    particles[index].orientation.x = s_orientation[index].x;
-    particles[index].orientation.y = s_orientation[index].y;
-    particles[index].orientation.z = s_orientation[index].z;
+    particles[index].orientation.x = (s_orientation[index].x);
+    particles[index].orientation.y = (s_orientation[index].y);
+    particles[index].orientation.z = (s_orientation[index].z);
 
-    particles[index].angular_momentum.x = s_angular_momentum[index].x;
-    particles[index].angular_momentum.y = s_angular_momentum[index].y;
-    particles[index].angular_momentum.z = s_angular_momentum[index].z;
+    particles[index].angular_momentum.x = (s_angular_momentum[index].x);
+    particles[index].angular_momentum.y = (s_angular_momentum[index].y);
+    particles[index].angular_momentum.z = (s_angular_momentum[index].z);
     memoryBarrierBuffer();
+}
+
+double div_zero(const double value)
+{
+    return (value<LOCAL_EPSILON?LOCAL_EPSILON:value);
 }
 
 /**
@@ -158,51 +175,61 @@ float distance(const vector3d_t v0, const vector3d_t v1)
     const float y = v0.y - v1.y;
     const float z = v0.z - v1.z;
 
-    return sqrt(x*x + y*y + z*z);
+    return sqrt(abs(x*x) + abs(y*y) + abs(z*z));
 }
 
 float length(const vector3d_t v)
 {
-    return sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+    return sqrt(abs(v.x*v.x) + abs(v.y*v.y) + abs(v.z*v.z));
+}
+
+double distance(const dvector3d_t v0, const dvector3d_t v1)
+{
+    const double x = v0.x - v1.x;
+    const double y = v0.y - v1.y;
+    const double z = v0.z - v1.z;
+
+    return sqrt(abs(x*x) + abs(y*y) + abs(z*z));
+}
+
+double length(const dvector3d_t v)
+{
+    return sqrt(abs(v.x*v.x) + abs(v.y*v.y) + abs(v.z*v.z));
 }
 
 /**
  * forcing functions
  */
-float gravitational_force(const float m1, const float m2, float r)
+double gravitational_force(const double m1, const double m2, double r)
 {
-    if (r < LOCAL_EPSILON) r = LOCAL_EPSILON;
-
-    return (UNIVERSAL_GRAVITY_CONST * m1 * m2) / (r * r);
+    return (UNIVERSAL_GRAVITY_CONST * m1 * m2) / div_zero(r * r);
 }
 
-float electric_force(const float q1, const float q2, float r)
+double electric_force(const double q1, const double q2, double r)
 {
-    if (r < LOCAL_EPSILON) r = LOCAL_EPSILON;
-
-    return (COULOMB_CONST * q1 * q2) / (r * r);
+    return (COULOMB_CONST * q1 * q2) / div_zero(r * r);
 }
 
 /**
  * functions to componentize force
  */
-vec2 componentize_force_2d(const float F, const vec2 direction_vector)
+dvec2 componentize_force_2d(const double F, const dvec2 direction_vector)
 {
-    const float azimuth_cos = acos(direction_vector.x / length(direction_vector));
-    const float azimuth_sin = asin(direction_vector.y / length(direction_vector));
+    const float azimuth_cos = degrees(acos(float(direction_vector.x / div_zero(length(direction_vector)))));
+    const float azimuth_sin = degrees(asin(float(direction_vector.y / div_zero(length(direction_vector)))));
 
-    return F * vec2(cos(azimuth_cos), sin(azimuth_sin));
+    return dvec2(F*cos(azimuth_cos), F*sin(azimuth_sin));
 }
 
-vec3 componentize_force_3d(const float F, const vec3 direction_vector)
+dvec3 componentize_force_3d(const double F, const dvec3 direction_vector)
 {
-    const float magnitude = length(direction_vector);
-    const float polar_cos = acos(direction_vector.z / magnitude);
-    const float polar_sin = asin(distance(direction_vector.x, direction_vector.y) / magnitude);
-    const float azimuth_cos = acos(direction_vector.x / (magnitude * sin(polar_sin)));
-    const float azimuth_sin = asin(direction_vector.y / (magnitude * sin(polar_sin)));
+    const float magnitude = length(float(direction_vector));
+    const float polar_cos = degrees(acos(float(direction_vector.z / div_zero(magnitude))));
+    const float polar_sin = degrees(asin(float(distance(direction_vector.x, direction_vector.y) / div_zero(magnitude))));
+    const float azimuth_cos = degrees(acos(float(direction_vector.x / div_zero(magnitude * sin(polar_sin)))));
+    const float azimuth_sin = degrees(asin(float(direction_vector.y / div_zero(magnitude * sin(polar_sin)))));
 
-    return F * vec3(cos(azimuth_cos)*sin(polar_sin), sin(azimuth_sin)*sin(polar_sin), cos(polar_cos));
+    return dvec3(F*cos(azimuth_cos)*sin(polar_sin), F*sin(azimuth_sin)*sin(polar_sin), F*cos(polar_cos));
 }
 
 /**
@@ -213,17 +240,15 @@ bool detect_collision(const uint that_index)
     return distance(s_pos[index], s_pos[that_index]) < (particles[index].radius + particles[that_index].radius);
 }
 
-void update_momentum(const vec3 F)
+void update_momentum(const dvec3 F)
 {
-    s_momentum[index] += (F * sample_period);
-    memoryBarrierShared();
+    s_momentum[index] += vec3(sample_period * F);
 }
 
 void update_position()
 {
-    const vec3 change_in_velocity = s_momentum[index] / particles[index].mass;
-    s_pos[index] += (change_in_velocity * sample_period);
-    memoryBarrierShared();
+    const dvec3 change_in_velocity = s_momentum[index] / (particles[index].mass);
+    s_pos[index] += vec3(sample_period * change_in_velocity);
 }
 
 void update_orientation()
@@ -232,25 +257,24 @@ void update_orientation()
      * Moment of inertia of a sphere about its axis is 4/5 M R^2
      * with respect to its surface is 7/5 M R^2
      */
-    const float moment_of_inertia_of_a_sphere = 1.4 * particles[index].mass * particles[index].radius * particles[index].radius;
-    const vec3 change_in_orientation = s_angular_momentum[index] / moment_of_inertia_of_a_sphere;
-    s_orientation[index] += (change_in_orientation * sample_period);
-    memoryBarrierShared();
+    const double moment_of_inertia_of_a_sphere = 1.4 * particles[index].mass * particles[index].radius * particles[index].radius;
+    const dvec3 change_in_orientation = (s_angular_momentum[index] / div_zero(moment_of_inertia_of_a_sphere));
+    s_orientation[index] += vec3(sample_period * change_in_orientation);
 }
 
-vec3 resultant_force_from_fields()
+dvec3 resultant_force_from_fields()
 {
-    vec3 F_resultant;
+    dvec3 F_resultant = dvec3(0, 0, 0);
 
     /* Try to find a time improvement to compute all forces acting on current particle */
     for (uint that_index = 0; that_index < particles.length(); ++that_index) {
 
         if (particles[index].id == particles[that_index].id) continue;
 
-        const float r = distance(s_pos[index], s_pos[that_index]);
+        const double r = distance(s_pos[index], s_pos[that_index]);
 
         F_resultant += componentize_force_3d(
-                        electric_force(particles[index].charge, particles[that_index].charge, r),
+                        electric_force(double(particles[index].charge), double(particles[that_index].charge), r),
                                       (s_pos[index] - s_pos[that_index]));
 
         #ifdef __USE_GRAVITY
@@ -276,19 +300,18 @@ vec3 resultant_force_from_fields()
  */
 void elastic_collision_linear_momentum_update(const uint that_index)
 {
-    const vec3 Vi_this = s_momentum[index] * (1 / particles[index].mass);
-    const vec3 Vi_that = s_momentum[that_index] * (1 / particles[that_index].mass);
+    const dvec3 Vi_this = (s_momentum[index] * (1 / particles[index].mass));
+    const dvec3 Vi_that = (s_momentum[that_index] * (1 / particles[that_index].mass));
 
-    const float total_mass = particles[index].mass + particles[that_index].mass;
-    const float mass_diff = particles[index].mass - particles[that_index].mass;
+    const double total_mass = div_zero(particles[index].mass + particles[that_index].mass);
+    const double mass_diff = particles[index].mass - particles[that_index].mass;
 
-    const vec3 Vf_this = (Vi_this * mass_diff/total_mass) + (Vi_that * 2*particles[that_index].mass/total_mass);
+    const dvec3 Vf_this = (Vi_this * mass_diff/total_mass) + (Vi_that * 2*particles[that_index].mass/total_mass);
 
-    const vec3 Vf_that = (Vi_this * 2*particles[index].mass/total_mass) + (Vi_that * -mass_diff/total_mass);
+    const dvec3 Vf_that = (Vi_this * 2*particles[index].mass/total_mass) + (Vi_that * (-mass_diff)/total_mass);
 
-    s_momentum[index] = Vf_this * particles[index].mass;
-    s_momentum[that_index] = Vf_that * particles[that_index].mass;
-    memoryBarrierShared();
+    s_momentum[index] = vec3(Vf_this * particles[index].mass);
+    s_momentum[that_index] = vec3(Vf_that * particles[that_index].mass);
 }
 
 /**
@@ -297,14 +320,13 @@ void elastic_collision_linear_momentum_update(const uint that_index)
  */
 void update_angular_momentum_after_collision(const uint that_index)
 {
-    const vec3 this_to_that_distance = s_pos[that_index] - s_pos[index];
-    const vec3 that_to_this_distance = -this_to_that_distance;
-    const vec3 r_this_to_that = this_to_that_distance * particles[index].radius / length(this_to_that_distance);
-    const vec3 r_that_to_this = that_to_this_distance * particles[that_index].radius / length(that_to_this_distance);
+    const dvec3 this_to_that_distance = s_pos[that_index] - s_pos[index];
+    const dvec3 that_to_this_distance = -this_to_that_distance;
+    const dvec3 r_this_to_that = this_to_that_distance * particles[index].radius / div_zero(length(this_to_that_distance));
+    const dvec3 r_that_to_this = that_to_this_distance * particles[that_index].radius / div_zero(length(that_to_this_distance));
 
-    s_angular_momentum[index] = cross(r_that_to_this, s_momentum[that_index]);
-    s_angular_momentum[that_index] = cross(r_this_to_that, s_momentum[index]);
-    memoryBarrierShared();
+    s_angular_momentum[index] = vec3(cross(r_that_to_this, s_momentum[that_index]));
+    s_angular_momentum[that_index] = vec3(cross(r_this_to_that, s_momentum[index]));
 }
 
 
@@ -314,7 +336,7 @@ void time_evolution()
     update_position();
     update_orientation();
 
-    /* Simple check for collision with another particle and perform momentum update */
+    // /* Simple check for collision with another particle and perform momentum update */
     for (uint that_index = 0; that_index < particles.length(); ++that_index) {
         
         if (particles[index].id == particles[that_index].id) continue;
@@ -419,9 +441,9 @@ void update_MVP()
 
     for (uint i = 0; i < MVP.length(); ++i) {
         M = mat4_translate(particles[index].pos);
-        M = mat4_rotate_X(M, particles[index].orientation.x/view_scalar);
-        M = mat4_rotate_Y(M, particles[index].orientation.y/view_scalar);
-        M = mat4_rotate_Z(M, particles[index].orientation.z/view_scalar);
+        M = mat4_rotate_X(M, degrees(particles[index].orientation.x/view_scalar));
+        M = mat4_rotate_Y(M, degrees(particles[index].orientation.y/view_scalar));
+        M = mat4_rotate_Z(M, degrees(particles[index].orientation.z/view_scalar));
         M *= view_scalar;
         P = mat4_ortho(-ratio, ratio, -1, 1, 1, -1);
         MVP[index] = P * M;

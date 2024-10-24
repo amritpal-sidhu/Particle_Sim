@@ -233,7 +233,7 @@ static void shader_storage_buffer_init(struct render_data_s *rdata, void *partic
     glNamedBufferStorage(rdata->SSBO[PARTICLE_SSBO], NUM_PARTICLES*ssbo_info[PARTICLE_SSBO].size, particles, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_info[PARTICLE_SSBO].binding, rdata->SSBO[PARTICLE_SSBO]);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, rdata->SSBO[MVP_SSBO]);
-    glNamedBufferStorage(rdata->SSBO[MVP_SSBO], NUM_PARTICLES*ssbo_info[MVP_SSBO].size, NULL, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
+    glNamedBufferData(rdata->SSBO[MVP_SSBO], NUM_PARTICLES*ssbo_info[MVP_SSBO].size, NULL, GL_DYNAMIC_COPY);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_info[MVP_SSBO].binding, rdata->SSBO[MVP_SSBO]);
 }
 

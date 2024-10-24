@@ -17,14 +17,14 @@ typedef enum
 
 static void render_loop(GLFWwindow *window);
 static void delay_usec(const delay_e type);
-static void get_MVP_ssbo_data(GLfloat MVP[NUM_PARTICLES][4][4]);
+static void print_particle_data_to_log(void);
 
 
 /* Global variables */
 log_t *log_handle;
 particle_t particles[NUM_PARTICLES];
 /* View scalar initial value determined from experimentation, but not sure it's source */
-struct render_data_s rdata = {.num_segments = NUM_SEGMENTS, .view_scalar = 1E-20f};
+struct render_data_s rdata = {.num_segments = NUM_SEGMENTS, .view_scalar = 5E-6f};
 
 
 int main(void)
@@ -86,20 +86,10 @@ static void render_loop(GLFWwindow *window)
         glClear(GL_COLOR_BUFFER_BIT);
 
 
-        for (size_t i = 0; i < NUM_PARTICLES; ++i) {
-            log__write(log_handle, LOG_DEBUG, "particle[%u].pos = <%E, %E, %E>\n", i, particles[i].pos.i, particles[i].pos.j, particles[i].pos.k);
-        }
+        print_particle_data_to_log();
 
         run_time_evolution_shader(&rdata, particles);
         
-        // get_MVP_ssbo_data(MVP);
-        // for (size_t i = 0; i < NUM_PARTICLES; ++i) {
-        //     log__write(log_handle, LOG_DEBUG, "MVP[%u]: {%E, %E, %E, %E}", i,   MVP[i][0][0], MVP[i][1][0], MVP[i][2][0], MVP[i][3][0]);
-        //     log__write(log_handle, LOG_DEBUG, "        {%E, %E, %E, %E}",       MVP[i][0][1], MVP[i][1][1], MVP[i][2][1], MVP[i][3][1]);
-        //     log__write(log_handle, LOG_DEBUG, "        {%E, %E, %E, %E}",       MVP[i][0][2], MVP[i][1][2], MVP[i][2][2], MVP[i][3][2]);
-        //     log__write(log_handle, LOG_DEBUG, "        {%E, %E, %E, %E}\n",     MVP[i][0][3], MVP[i][1][3], MVP[i][2][3], MVP[i][3][3]);
-        // } log__write(log_handle, LOG_NONE, "");
-
         for (size_t i = 0; i < NUM_PARTICLES; ++i)
             render_particles(&rdata, i, particles);
 
@@ -113,7 +103,7 @@ static void render_loop(GLFWwindow *window)
 static void delay_usec(const delay_e type)
 {
     static double epoch;
-    static const double delay_usec = 10000.0;
+    static const double delay_usec = sample_period * 1E6; // sample_period is in milliseconds
     double elapsed_usec;
 
     switch (type) {
@@ -134,12 +124,16 @@ static void delay_usec(const delay_e type)
     }
 }
 
-static void get_MVP_ssbo_data(GLfloat MVP[NUM_PARTICLES][4][4])
+static void print_particle_data_to_log(void)
 {
-    GLfloat ***mapped_data;
+    static size_t sample_number = 0;
 
-    mapped_data = glMapNamedBuffer(rdata.SSBO[MVP_SSBO], GL_READ_ONLY);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    memcpy(MVP, mapped_data, NUM_PARTICLES*ssbo_info[MVP_SSBO].size);
-    glUnmapNamedBuffer(rdata.SSBO[MVP_SSBO]);
+    for (size_t i = 0; i < NUM_PARTICLES; ++i) {
+        log__write(log_handle, LOG_DATA, "(%llu) particle[%llu].position = <%.3E, %.3E, %.3E>", sample_number, i, particles[i].pos.i, particles[i].pos.j, particles[i].pos.k);
+        log__write(log_handle, LOG_DATA, "(%llu) particle[%llu].momentum = <%.3E, %.3E, %.3E>", sample_number, i, particles[i].momenta.i, particles[i].momenta.j, particles[i].momenta.k);
+        log__write(log_handle, LOG_DATA, "(%llu) particle[%llu].orientation = <%.3E, %.3E, %.3E>", sample_number, i, particles[i].orientation.i, particles[i].orientation.j, particles[i].orientation.k);
+        log__write(log_handle, LOG_DATA, "(%llu) particle[%llu].angular_momentum = <%.3E, %.3E, %.3E>", sample_number, i, particles[i].angular_momenta.i, particles[i].angular_momenta.j, particles[i].angular_momenta.k);
+    }      
+
+    ++sample_number;
 }
